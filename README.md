@@ -1,5 +1,7 @@
 # dsh-mail-plugin
 
+English | [中文](README.zh.md)
+
 Email for **DeepSeek Harness (DSH)**: read a mailbox over IMAP, watch it for new messages, and send reviewed multipart HTML replies from an agent session.
 
 A community plugin for DSH. It is not an official DeepSeek project.
@@ -26,7 +28,7 @@ Works with any standard IMAP4rev1 + SMTP submission server that supports LOGIN o
 Install the package through **Plugins → Add plugin** and use the package spec:
 
 ```text
-dsh-mail-plugin@1.0.0
+dsh-mail-plugin@1.1.0
 ```
 
 The equivalent agent operation is `plugin_manager` with `action: "install_bundle"` and that spec as `target`. Installation is profile-wide and survives restart.
@@ -213,6 +215,10 @@ Source layout:
 - `lib/socket.js` — buffered line/TLS socket.
 - `lib/store.js` — settings, drafts, watcher state.
 - `lib/service.js` — account access, review policy, tools, RPC.
+
+## Chinese users
+
+A full Chinese README is available at [README.zh.md](README.zh.md). Gitee is supported as a read-only mirror; see [GITEE.md](GITEE.md). GitHub remains the canonical repository for issues, releases, and security advisories.
 
 ## Publishing
 

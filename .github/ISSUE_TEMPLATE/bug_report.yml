@@ -1,0 +1,63 @@
+name: 缺陷报告 / Bug report
+description: 报告 dsh-mail-plugin 的可复现问题
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈。这是社区项目，请尽量提供可复现信息。
+        安全漏洞请不要使用此模板，请通过 GitHub 私密安全公告报告：
+        https://github.com/rzakbrodalko/dsh-mail-plugin/security/advisories/new
+  - type: input
+    id: plugin-version
+    attributes:
+      label: 插件版本
+      placeholder: "例如 1.1.0"
+    validations:
+      required: true
+  - type: input
+    id: dsh-version
+    attributes:
+      label: DSH 版本
+      placeholder: "例如 0.2.2-rc.2"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: 操作系统
+      options:
+        - Windows
+        - macOS
+        - Linux
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 尽量给出最小步骤，不要包含邮箱密码或真实邮件正文。
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望结果
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际结果与错误信息
+      description: 请删除凭据、邮箱地址、邮件内容等敏感信息。
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 相关日志（可选）
+      description: 请先打码。
+    validations:
+      required: false

@@ -12,6 +12,19 @@ const pkg = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.ur
 const clientSource = fs.readFileSync(new URL('../client.js', import.meta.url), 'utf8')
 assert.ok(clientSource.includes(`id: '${pkg.name}'`))
 
+// Every visible string routed through t() needs a Chinese entry.
+const zhLiteral = /const ZH = (\{[\s\S]*?\n    \})\n    const EN =/.exec(clientSource)
+assert.ok(zhLiteral, 'ZH dictionary not found')
+const zh = Function(`return (${zhLiteral[1]})`)()
+const usedKeys = [...clientSource.matchAll(/\bt\('([^']+)'\)/g)].map(match => match[1])
+for (const key of usedKeys) {
+  assert.ok(Object.hasOwn(zh, key), `missing Chinese translation: ${key}`)
+}
+const zhMeta = JSON.parse(fs.readFileSync(new URL('../locale/zh.json', import.meta.url), 'utf8'))
+assert.equal(zhMeta.meta.detail, 'docs/DETAIL.zh.md')
+assert.ok(fs.existsSync(new URL('../docs/DETAIL.zh.md', import.meta.url)))
+assert.ok(pkg.dsh.client.inject.includes('@deepseek-ai/dsh-client-locale'))
+
 // 1. Build and reparse a multipart/alternative message.
 const built = buildMessage({
   from: { name: 'Zoë Sender', address: 'zoe@example.com' },

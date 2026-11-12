@@ -1,5 +1,7 @@
 # Mail
 
+English | [中文](DETAIL.zh.md)
+
 Read a mailbox over IMAP and send reviewed, multipart HTML replies from a DeepSeek Harness session. The plugin adds a **Mail** entry to the left sidebar and six tools the model can call.
 
 ## What it does

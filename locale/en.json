@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "Mail",
+    "description": "Read a mailbox over IMAP, watch it for new mail, and send reviewed multipart HTML replies. Trusted recipients can be answered automatically.",
+    "detail": "docs/DETAIL.md"
+  }
+}

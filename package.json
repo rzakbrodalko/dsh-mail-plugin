@@ -1,0 +1,64 @@
+{
+  "name": "dsh-mail-plugin",
+  "version": "1.0.0",
+  "description": "Read IMAP mail, watch for new messages, and send reviewed multipart HTML replies from DeepSeek Harness.",
+  "license": "MIT",
+  "author": "Robert Zak-Brodalko",
+  "homepage": "https://github.com/rzakbrodalko/dsh-mail-plugin#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rzakbrodalko/dsh-mail-plugin.git"
+  },
+  "bugs": {
+    "url": "https://github.com/rzakbrodalko/dsh-mail-plugin/issues"
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "email",
+    "imap",
+    "smtp",
+    "mail",
+    "agent",
+    "automation"
+  ],
+  "engines": {
+    "dsh": ">=0.2.2-rc.2 <0.3.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "lib",
+    "locale/*.json",
+    "docs",
+    "icon.svg",
+    "README.md",
+    "LICENSE",
+    "SECURITY.md",
+    "CHANGELOG.md",
+    "PUBLISHING.md"
+  ],
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-sidebar"
+      ]
+    }
+  }
+}

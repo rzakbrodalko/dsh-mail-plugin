@@ -1,0 +1,4 @@
+- insert:
+    - id: dsh-mail
+      name: 'dsh-mail-plugin'
+      config: {}

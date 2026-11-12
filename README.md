@@ -26,7 +26,7 @@ Works with any standard IMAP4rev1 + SMTP submission server that supports LOGIN o
 Install the package through **Plugins → Add plugin** and use the package spec:
 
 ```text
-dsh-mail-plugin@1.0.0
+dsh-mail-plugin@1.0.1
 ```
 
 The equivalent agent operation is `plugin_manager` with `action: "install_bundle"` and that spec as `target`. Installation is profile-wide and survives restart.

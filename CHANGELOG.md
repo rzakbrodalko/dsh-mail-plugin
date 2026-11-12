@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.0.1] - 2026-11-13
+
+### Fixed
+
+- The browser bundle registered itself under the old development package id (`@local/dsh-mail`), so DSH never materialized it under the published name and the Mail sidebar entry was missing. The module id now matches `dsh-mail-plugin`.
+
 ## [1.0.0] - 2026-11-12
 
 ### Added

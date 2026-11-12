@@ -7,6 +7,11 @@ import { MailStore, normalizeSettings } from '../lib/store.js'
 import { MailService } from '../lib/service.js'
 import { htmlToText, parseAddressList } from '../lib/util.js'
 
+// The browser bundle must register under its package name or DSH cannot load it.
+const pkg = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
+const clientSource = fs.readFileSync(new URL('../client.js', import.meta.url), 'utf8')
+assert.ok(clientSource.includes(`id: '${pkg.name}'`))
+
 // 1. Build and reparse a multipart/alternative message.
 const built = buildMessage({
   from: { name: 'Zoë Sender', address: 'zoe@example.com' },

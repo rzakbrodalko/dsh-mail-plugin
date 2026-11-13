@@ -180,7 +180,6 @@ The plugin talks only to the IMAP and SMTP servers you configure. It contains no
 - No draft folder synchronization; drafts live in the plugin store, not on the server.
 - Plain-text extraction is heuristic; complex HTML may lose formatting.
 - Sent-folder append is best effort; a failure produces a warning but does not undo a successful send.
-- English-only panel copy.
 - No self-signed TLS option.
 - A watcher pass advances past a UID once it queues the session; a later model failure is not retried automatically. The unread message remains for manual handling.
 

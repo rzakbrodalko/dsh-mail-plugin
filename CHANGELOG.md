@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.1.0] - 2026-11-13
+
+### Added
+
+- Simplified Chinese panel localization following the DSH active locale, with English fallback.
+- Chinese README, security summary, plugin detail page, and plugin-manager metadata (`locale/zh.json`).
+- Gitee mirroring guide (`GITEE.md`) and a Chinese bug-report issue template.
+- Chinese npm keywords for discovery.
+
+### Changed
+
+- The review preview, settings, notices, empty states, and action labels now come from one locale dictionary; unsupported locales fall back to English.
+
 ## [1.0.1] - 2026-11-13
 
 ### Fixed

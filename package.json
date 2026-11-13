@@ -1,6 +1,6 @@
 {
   "name": "dsh-mail-plugin",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Read IMAP mail, watch for new messages, and send reviewed multipart HTML replies from DeepSeek Harness.",
   "license": "MIT",
   "author": "Robert Zak-Brodalko",
@@ -21,7 +21,10 @@
     "smtp",
     "mail",
     "agent",
-    "automation"
+    "automation",
+    "邮件",
+    "邮箱",
+    "邮件自动化"
   ],
   "engines": {
     "dsh": ">=0.2.2-rc.2 <0.3.0"
@@ -45,10 +48,13 @@
     "docs",
     "icon.svg",
     "README.md",
+    "README.zh.md",
     "LICENSE",
     "SECURITY.md",
+    "SECURITY.zh.md",
     "CHANGELOG.md",
-    "PUBLISHING.md"
+    "PUBLISHING.md",
+    "GITEE.md"
   ],
   "dsh": {
     "bundle": { "patch": "./cordis.patch.yml" },
@@ -56,6 +62,7 @@
       "platform": "web",
       "immediately": true,
       "inject": [
+        "@deepseek-ai/dsh-client-locale",
         "@deepseek-ai/dsh-client-ui-layout",
         "@deepseek-ai/dsh-client-ui-sidebar"
       ]

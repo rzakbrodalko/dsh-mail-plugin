@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "邮件",
+    "description": "通过 IMAP 读取邮箱、监听新邮件，并发送经过审核的 multipart HTML 回复。受信任的收件人可自动回复。",
+    "detail": "docs/DETAIL.zh.md"
+  }
+}

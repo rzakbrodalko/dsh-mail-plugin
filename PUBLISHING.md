@@ -100,13 +100,13 @@ Then on GitHub: **Releases → Draft a new release** → choose tag `v1.0.0` →
 In DSH, use **Plugins → Add plugin** with:
 
 ```text
-dsh-mail-plugin@1.0.0
+dsh-mail-plugin@1.1.0
 ```
 
 Or through the agent tool:
 
 ```text
-plugin_manager action=install_bundle target=dsh-mail-plugin@1.0.0
+plugin_manager action=install_bundle target=dsh-mail-plugin@1.1.0
 ```
 
 Verify the bundle row is active and the **Mail** sidebar entry appears.
@@ -118,7 +118,7 @@ DSH's Discover page reads plugin-market indexes that users configure. There is n
 - host a format-1 index yourself and share its URL, or
 - ask the maintainer of a community or official index to list the package.
 
-The index format is validated by `@deepseek-ai/dsh-plugin-market-index`. Each version's install target for an npm release is the package name and version, for example `dsh-mail-plugin@1.0.0`.
+The index format is validated by `@deepseek-ai/dsh-plugin-market-index`. Each version's install target for an npm release is the package name and version, for example `dsh-mail-plugin@1.1.0`.
 
 ## 9. After publishing
 

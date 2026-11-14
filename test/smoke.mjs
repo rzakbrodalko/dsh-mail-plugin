@@ -88,6 +88,8 @@ assert.equal(parsed.text, 'Café time')
 assert.match(parsed.html, /Café time/)
 assert.equal(parsed.attachments.length, 1)
 assert.equal(parsed.attachments[0].filename, 'note.bin')
+const parsedContent = parseMessage(Buffer.from(raw, 'latin1'), { includeAttachmentContent: true })
+assert.equal(parsedContent.attachments[0].content.toString(), 'binary')
 
 // 3. Text conversion and address parsing.
 assert.match(htmlToText('<p>Hi<br>there &amp; you</p>'), /Hi\nthere & you/)
@@ -123,6 +125,55 @@ store.getSettings().review.mode = 'always'
 assert.equal(service.reviewDecision([{ address: 'x@example.com' }]).required, true)
 store.getSettings().review.mode = 'never'
 assert.equal(service.reviewDecision([{ address: 'x@other.org' }]).required, false)
+
+// 6. Contact profiles: exact address wins over domain and longest domain wins.
+const domainContact = await service.saveContact({
+  match: 'client.com',
+  name: 'Client Corp',
+  relationship: 'client organization',
+  language: 'pl',
+  tone: 'formal',
+})
+const exactContact = await service.saveContact({
+  match: 'anna@client.com',
+  name: 'Anna',
+  relationship: 'client',
+  language: 'pl',
+  tone: 'concise',
+  notes: 'CFO; confirm deadlines.',
+})
+assert.equal(service.resolveContact('anna@client.com').matchedBy, 'exact')
+assert.equal(service.resolveContact('anna@client.com').contact.name, 'Anna')
+assert.equal(service.resolveContact('other@client.com').matchedBy, 'domain')
+assert.equal(service.resolveContact('anna@sub.client.com').matchedBy, 'domain')
+assert.equal(service.resolveContact('anna@other.com'), null)
+const updated = await service.saveContact({ id: exactContact.id, match: 'anna@client.com', name: 'Anna K.', relationship: 'client' })
+assert.equal(updated.name, 'Anna K.')
+await assert.rejects(() => service.saveContact({ match: 'not a domain' }), /Invalid contact domain/)
+await assert.rejects(() => service.saveContact({ match: 'client.com' }), /already exists/)
+await service.deleteContact(domainContact.id)
+assert.deepEqual(service.listContactViews('anna').map(entry => entry.name), ['Anna K.'])
+const rpcList = await service.handleRpc('contacts/list', { query: 'anna' })
+assert.equal(rpcList.contacts.length, 1)
+const rpcContact = await service.handleRpc('contacts/save', {
+  match: 'rpc@client.com',
+  name: 'RPC Contact',
+  relationship: 'prospect',
+})
+assert.equal((await service.handleRpc('contacts/list')).contacts.length, 2)
+await service.handleRpc('contacts/delete', { id: rpcContact.id })
+assert.equal((await service.handleRpc('contacts/list')).contacts.length, 1)
+
+const savedAttachments = await service.saveIncomingAttachments(99, [{
+  filename: '../../evil.txt',
+  contentType: 'text/plain',
+  size: 5,
+  content: Buffer.from('hello'),
+}], '<test@example.com>')
+assert.equal(savedAttachments[0].filename, 'evil.txt')
+assert.equal(savedAttachments[0].skipped, false)
+assert.equal(fs.readFileSync(savedAttachments[0].path, 'utf8'), 'hello')
+assert.ok(savedAttachments[0].path.startsWith(directory))
 
 fs.rmSync(directory, { recursive: true, force: true })
 console.log('All mail plugin smoke tests passed')

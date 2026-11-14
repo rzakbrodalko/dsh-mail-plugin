@@ -6,10 +6,11 @@ Email for **DeepSeek Harness (DSH)**: read a mailbox over IMAP, watch it for new
 
 A community plugin for DSH. It is not an official DeepSeek project.
 
-- **Sidebar panel** — `Mail` in the left sidebar, with Review and Settings tabs.
+- **Sidebar panel** — `Mail` in the left sidebar, with Review, Contacts, and Settings tabs.
 - **Agent tools** — list/read mail, draft HTML replies, send approved drafts.
 - **Review gate** — replies to untrusted recipients wait for your approval.
 - **Trusted recipients** — whitelist exact addresses (`test@example.com`) or domains (`example.com`, including subdomains).
+- **Incoming attachments** — save decoded attachments to a bounded local folder with safe names, then inspect them with normal DSH tools.
 - **Background watcher** — polls for new mail and wakes the session that last used a Mail tool; trusted replies can be sent automatically.
 - **No runtime dependencies** — small IMAP/SMTP/MIME implementation on Node built-ins.
 
@@ -28,7 +29,7 @@ Works with any standard IMAP4rev1 + SMTP submission server that supports LOGIN o
 Install the package through **Plugins → Add plugin** and use the package spec:
 
 ```text
-dsh-mail-plugin@1.1.0
+dsh-mail-plugin@1.2.0
 ```
 
 The equivalent agent operation is `plugin_manager` with `action: "install_bundle"` and that spec as `target`. Installation is profile-wide and survives restart.
@@ -84,11 +85,12 @@ The agent calls:
 | Tool | Purpose |
 |---|---|
 | `mail_list` | List recent messages with UID, sender, subject, date, unread state, and a preview |
-| `mail_read` | Read one message; optionally mark it seen |
+| `mail_read` | Read one message; optionally save attachments and mark it seen |
 | `mail_reply` | Create a multipart/alternative HTML reply draft with threading headers |
 | `mail_send` | Send an approved or auto-approved draft |
 | `mail_drafts` | Inspect draft review/send state |
-| `mail_status` | Report account, review policy, watcher state, and pending reviews |
+| `mail_contacts` | Look up or list saved contact profiles |
+| `mail_status` | Report account, review policy, contacts, watcher state, and pending reviews |
 
 A reply is delivered only by `mail_send`. If `mail_reply` reports `reviewRequired: true`, the draft waits in **Mail → Review**; the agent cannot approve it.
 
@@ -103,6 +105,52 @@ Each line in **Trusted recipients** is one of:
 | `*.example.com` | Treated as the domain `example.com` |
 
 Entries are trimmed and lowercased. Exact addresses are safer than whole domains.
+
+### Contact profiles
+
+**Mail → Contacts** stores who an address or domain is, so the agent can adapt language and tone:
+
+| Field | Example |
+|---|---|
+| Match | `anna@client.com` or `client.com` |
+| Name | Anna Kowalska / Client Corp |
+| Relationship | client, supplier, colleague, family, prospect |
+| Language | `pl`, `en` |
+| Tone | formal, concise, no emoji |
+| Notes | CFO; confirm deadlines; copy the account manager |
+
+Matching rules:
+
+1. An exact address wins over any domain entry.
+2. Otherwise, the longest matching domain wins.
+3. Domain entries cover their subdomains.
+4. Matching is case-insensitive.
+
+The list uses a **green badge with a dot** for exact addresses and a **blue badge with a dot** for domains, so the scope is clear at a glance.
+
+Contact profiles **never** change the trusted-recipient list or the review policy. They only give the model context. Profiles are stored in `$DSH_HOME/mail-plugin/contacts.json` and are visible to the model, so do not put passwords or sensitive secrets in notes.
+
+`mail_list` includes a compact contact summary, `mail_read` includes the full sender profile, and `mail_reply` includes recipient profiles. The `mail_contacts` tool looks up one address or lists saved profiles.
+
+### Incoming attachments
+
+Call `mail_read` with `saveAttachments: true` to decode attachments into:
+
+```text
+$DSH_HOME/mail-plugin/attachments/<uid>-<timestamp>/
+```
+
+Each result carries a sanitized filename, MIME type, size, `attachmentId`, and absolute local path. A `manifest.json` records what was saved.
+
+Limits and safety:
+
+- 10 MiB per attachment, 25 MiB total per message.
+- Path separators and reserved names are stripped; files are written with owner-only permissions.
+- Files are never opened or executed by the plugin. Inspect them with normal DSH tools.
+- Attachments above the limits are reported as `skipped` with a reason.
+- Outgoing attachments are **not** supported in this release.
+
+Downloaded attachments can contain malware. Do not execute them, and treat their contents as untrusted data.
 
 ### Background watcher
 
@@ -148,13 +196,15 @@ For the full threat model, reporting process, and hardening checklist, see [SECU
 - Email content is untrusted input. The watcher prompt tells the agent to treat it as data, but the model can still be influenced by persuasive content.
 - The model may make mistakes, misread a request, or produce an incorrect answer. Review mode is the main defence for high-value recipients.
 - The Mail plugin does not grant filesystem access. Any file or shell access the agent uses comes from the rest of the DSH session and remains subject to DSH's sandbox and approval policy.
-- The plugin cannot attach files to outgoing mail; replies are HTML text only.
+- The plugin cannot attach files to outgoing mail; replies are HTML text only. Incoming attachments can be saved and inspected, but they may contain malware and are never executed by the plugin.
 
 ### Data at rest
 
 - `$DSH_HOME/mail-plugin/settings.json` contains addresses, server names, folder names, and the trusted list.
 - `$DSH_HOME/mail-plugin/drafts.json` contains full draft bodies and message metadata, including source message headers.
 - `$DSH_HOME/mail-plugin/watcher.json` contains the last UID and watcher state.
+- `$DSH_HOME/mail-plugin/contacts.json` contains the contact profiles and notes you entered.
+- `$DSH_HOME/mail-plugin/attachments/` contains saved incoming files and their manifest; it grows until you clean it up.
 - Files are written with owner-only permissions where the platform supports it. Protect the DSH home directory and backups accordingly.
 
 ### Network and privacy
@@ -175,7 +225,7 @@ The plugin talks only to the IMAP and SMTP servers you configure. It contains no
 
 - One mailbox per installation; no multi-account selector.
 - No OAuth sign-in; no Gmail API/Microsoft Graph. App passwords only.
-- No attachments in either direction (listed on read, never downloaded or sent).
+- Incoming attachments can be saved and inspected; outgoing attachments are not supported.
 - No IMAP IDLE; the watcher polls.
 - No draft folder synchronization; drafts live in the plugin store, not on the server.
 - Plain-text extraction is heuristic; complex HTML may lose formatting.

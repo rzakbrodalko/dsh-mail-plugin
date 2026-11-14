@@ -26,6 +26,9 @@ const SAMPLE = [
   'Message-ID: <source@partner.org>',
   'References: <root@partner.org>',
   'MIME-Version: 1.0',
+  'Content-Type: multipart/mixed; boundary="outer"',
+  '',
+  '--outer',
   'Content-Type: multipart/alternative; boundary="b"',
   '',
   '--b',
@@ -37,6 +40,13 @@ const SAMPLE = [
   '',
   '<p>Could you <strong>confirm</strong> the plan?</p>',
   '--b--',
+  '--outer',
+  'Content-Type: text/plain; name="plan.txt"',
+  'Content-Disposition: attachment; filename="plan.txt"',
+  'Content-Transfer-Encoding: base64',
+  '',
+  Buffer.from('plan contents').toString('base64'),
+  '--outer--',
   '',
 ].join('\r\n')
 
@@ -258,11 +268,25 @@ try {
   assert.equal(store.getWatcher().targetSessionId, 'session-1')
   await store.saveWatcher({ enabled: false })
 
+  await service.saveContact({
+    match: 'partner.org',
+    name: 'Partner Org',
+    relationship: 'client',
+    language: 'en',
+    tone: 'formal',
+  })
   const listed = await service.listMessages({ limit: 2 })
   assert.equal(listed.messages.length, 2)
   assert.equal(listed.messages[0].from, 'Alice <alice@partner.org>')
+  assert.equal(listed.messages[0].contact.name, 'Partner Org')
   const read = await service.readMessage({ uid: 12 })
   assert.match(read.text, /confirm the plan/)
+  assert.equal(read.contact.relationship, 'client')
+  const savedRead = await service.readMessage({ uid: 12, saveAttachments: true })
+  assert.equal(savedRead.attachments.length, 1)
+  assert.equal(savedRead.attachments[0].filename, 'plan.txt')
+  assert.equal(savedRead.attachments[0].skipped, false)
+  assert.equal(fs.readFileSync(savedRead.attachments[0].path, 'utf8'), 'plan contents')
   const reply = await service.createReply({
     uid: 12,
     html: '<p>Confirmed, thank you.</p>',
@@ -270,6 +294,9 @@ try {
   })
   assert.equal(reply.reviewRequired, true)
   assert.equal(reply.status, 'pending_review')
+  assert.equal(reply.contact.name, 'Partner Org')
+  assert.equal(reply.recipientContacts[0].address, 'alice@partner.org')
+  assert.equal(reply.recipientContacts[0].contact.relationship, 'client')
   const pendingList = await service.handleRpc('drafts/list')
   assert.equal(pendingList.pending.length, 1)
   assert.ok(Array.isArray(pendingList.approved))

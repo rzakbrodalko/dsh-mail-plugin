@@ -2,11 +2,11 @@
 
 English | [中文](DETAIL.zh.md)
 
-Read a mailbox over IMAP and send reviewed, multipart HTML replies from a DeepSeek Harness session. The plugin adds a **Mail** entry to the left sidebar and six tools the model can call.
+Read a mailbox over IMAP and send reviewed, multipart HTML replies from a DeepSeek Harness session. The plugin adds a **Mail** entry to the left sidebar and seven tools the model can call.
 
 ## What it does
 
-- **Read mail** — `mail_list` lists recent messages from a folder with sender, subject, date, unread state, a short preview, and UIDs. `mail_read` returns the decoded plain-text body, headers, attachment names, and optionally the HTML body. Messages stay untouched unless `markSeen` is set.
+- **Read mail** — `mail_list` lists recent messages from a folder with sender, subject, date, unread state, a short preview, and UIDs. `mail_read` returns the decoded plain-text body, headers, attachment metadata or saved attachment paths, and optionally the HTML body. Set `saveAttachments` to save decoded files under `$DSH_HOME/mail-plugin/attachments` with safe names and size limits. Messages stay untouched unless `markSeen` is set.
 - **Draft replies** — `mail_reply` fetches the source message, addresses the reply to its sender (or `Reply-To`), sets `In-Reply-To`/`References` for threading, and stores an HTML body plus a generated plain-text alternative. The draft is multipart/alternative when sent.
 - **Review before sending** — a draft to an untrusted recipient waits in the **Mail → Review** panel. The user can inspect the rendered HTML, compare it with the original message, edit the source and subject, and choose **Approve & send**, **Save changes**, or **Reject**. Only user approval releases it. The sidebar icon shows a warning dot while a draft awaits review.
 - **Approved drafts** — a draft whose policy needs no review appears as **Ready** under Review, so the user can still send it if the model did not.
@@ -15,6 +15,7 @@ Read a mailbox over IMAP and send reviewed, multipart HTML replies from a DeepSe
   - *Review all, except trusted recipients* (default) — drafts whose recipients are all covered by the list are approved automatically; every other draft waits for review. Each list entry is either a **domain** (`example.com`, which also covers its subdomains) or an **exact address** (`test@example.com`, which covers only that mailbox).
   - *Always review* — every draft waits.
   - *Never review* — drafts are approved automatically.
+- **Contact profiles** — in **Mail → Contacts**, describe who an address or domain is: name, relationship, language, tone, and notes. Exact addresses win over domains, and domain entries cover subdomains. A green badge marks exact addresses and a blue badge marks domains. Profiles only guide language and tone; they never change trust or review authorization. `mail_list`, `mail_read`, and `mail_reply` include the applicable profile, and `mail_contacts` can look one up.
 - **Send** — `mail_send` delivers an approved draft over SMTP and appends a copy to the configured Sent folder when the server permits it. It refuses drafts that are still awaiting review or were rejected.
 
 ## Configure the mailbox
@@ -40,12 +41,12 @@ To enable automatic replies, open **Mail → Settings → Automatic replies**, t
 4. For a draft that requires review, open **Mail → Review**, inspect the rendered message, edit if needed, then **Approve & send**. The model can then confirm the send, or the panel sends directly during approval.
 5. For a trusted recipient, the draft is approved automatically; the model sends it with `mail_send`.
 
-The model can check status with `mail_drafts` and `mail_status`. It cannot approve a draft: approval is a user action in the panel.
+The model can check status with `mail_drafts`, `mail_contacts`, and `mail_status`. It cannot approve a draft: approval is a user action in the panel.
 
 ## Limitations
 
 - One mailbox per installation; multi-account selection is not implemented.
-- Attachments are listed but not downloaded or attached to outgoing mail.
+- Incoming attachments can be saved and inspected; outgoing attachments are not supported.
 - Plain-text extraction is heuristic; complex HTML mail may lose formatting in the text alternative.
 - The IMAP client implements the common IMAP4rev1 subset (LOGIN/SASL PLAIN, SELECT, UID SEARCH, UID FETCH, UID STORE, APPEND). Unusual server extensions or OAuth-only providers are not supported; use an app password where the provider requires one.
 - The Sent-folder copy is best effort. A missing Sent mailbox produces a warning but does not undo a successful send.

@@ -88,6 +88,8 @@ assert.equal(parsed.text, 'Café time')
 assert.match(parsed.html, /Café time/)
 assert.equal(parsed.attachments.length, 1)
 assert.equal(parsed.attachments[0].filename, 'note.bin')
+const parsedContent = parseMessage(Buffer.from(raw, 'latin1'), { includeAttachmentContent: true })
+assert.equal(parsedContent.attachments[0].content.toString(), 'binary')
 
 // 3. Text conversion and address parsing.
 assert.match(htmlToText('<p>Hi<br>there &amp; you</p>'), /Hi\nthere & you/)
@@ -161,6 +163,17 @@ const rpcContact = await service.handleRpc('contacts/save', {
 assert.equal((await service.handleRpc('contacts/list')).contacts.length, 2)
 await service.handleRpc('contacts/delete', { id: rpcContact.id })
 assert.equal((await service.handleRpc('contacts/list')).contacts.length, 1)
+
+const savedAttachments = await service.saveIncomingAttachments(99, [{
+  filename: '../../evil.txt',
+  contentType: 'text/plain',
+  size: 5,
+  content: Buffer.from('hello'),
+}], '<test@example.com>')
+assert.equal(savedAttachments[0].filename, 'evil.txt')
+assert.equal(savedAttachments[0].skipped, false)
+assert.equal(fs.readFileSync(savedAttachments[0].path, 'utf8'), 'hello')
+assert.ok(savedAttachments[0].path.startsWith(directory))
 
 fs.rmSync(directory, { recursive: true, force: true })
 console.log('All mail plugin smoke tests passed')

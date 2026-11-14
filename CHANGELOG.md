@@ -11,6 +11,7 @@ All notable changes to this project are documented here. The format follows [Kee
 - Contact matching with exact-address precedence and longest-domain fallback; domains cover subdomains.
 - `mail_contacts` lookup tool.
 - Contact enrichment in `mail_list`, `mail_read`, and `mail_reply` so the agent can adapt language and tone.
+- **Incoming attachment saving**: `mail_read` with `saveAttachments: true` writes decoded files under `$DSH_HOME/mail-plugin/attachments` with sanitized names, owner-only permissions, a 10 MiB per-file limit, and a 25 MiB per-message limit.
 - Contacts are stored locally in `$DSH_HOME/mail-plugin/contacts.json`; they never affect trust or review authorization.
 
 ## [1.1.0] - 2026-11-13

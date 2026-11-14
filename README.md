@@ -6,7 +6,7 @@ Email for **DeepSeek Harness (DSH)**: read a mailbox over IMAP, watch it for new
 
 A community plugin for DSH. It is not an official DeepSeek project.
 
-- **Sidebar panel** — `Mail` in the left sidebar, with Review and Settings tabs.
+- **Sidebar panel** — `Mail` in the left sidebar, with Review, Contacts, and Settings tabs.
 - **Agent tools** — list/read mail, draft HTML replies, send approved drafts.
 - **Review gate** — replies to untrusted recipients wait for your approval.
 - **Trusted recipients** — whitelist exact addresses (`test@example.com`) or domains (`example.com`, including subdomains).
@@ -28,7 +28,7 @@ Works with any standard IMAP4rev1 + SMTP submission server that supports LOGIN o
 Install the package through **Plugins → Add plugin** and use the package spec:
 
 ```text
-dsh-mail-plugin@1.1.0
+dsh-mail-plugin@1.2.0
 ```
 
 The equivalent agent operation is `plugin_manager` with `action: "install_bundle"` and that spec as `target`. Installation is profile-wide and survives restart.
@@ -88,7 +88,8 @@ The agent calls:
 | `mail_reply` | Create a multipart/alternative HTML reply draft with threading headers |
 | `mail_send` | Send an approved or auto-approved draft |
 | `mail_drafts` | Inspect draft review/send state |
-| `mail_status` | Report account, review policy, watcher state, and pending reviews |
+| `mail_contacts` | Look up or list saved contact profiles |
+| `mail_status` | Report account, review policy, contacts, watcher state, and pending reviews |
 
 A reply is delivered only by `mail_send`. If `mail_reply` reports `reviewRequired: true`, the draft waits in **Mail → Review**; the agent cannot approve it.
 
@@ -103,6 +104,30 @@ Each line in **Trusted recipients** is one of:
 | `*.example.com` | Treated as the domain `example.com` |
 
 Entries are trimmed and lowercased. Exact addresses are safer than whole domains.
+
+### Contact profiles
+
+**Mail → Contacts** stores who an address or domain is, so the agent can adapt language and tone:
+
+| Field | Example |
+|---|---|
+| Match | `anna@client.com` or `client.com` |
+| Name | Anna Kowalska / Client Corp |
+| Relationship | client, supplier, colleague, family, prospect |
+| Language | `pl`, `en` |
+| Tone | formal, concise, no emoji |
+| Notes | CFO; confirm deadlines; copy the account manager |
+
+Matching rules:
+
+1. An exact address wins over any domain entry.
+2. Otherwise, the longest matching domain wins.
+3. Domain entries cover their subdomains.
+4. Matching is case-insensitive.
+
+Contact profiles **never** change the trusted-recipient list or the review policy. They only give the model context. Profiles are stored in `$DSH_HOME/mail-plugin/contacts.json` and are visible to the model, so do not put passwords or sensitive secrets in notes.
+
+`mail_list` includes a compact contact summary, `mail_read` includes the full sender profile, and `mail_reply` includes recipient profiles. The `mail_contacts` tool looks up one address or lists saved profiles.
 
 ### Background watcher
 
@@ -155,6 +180,7 @@ For the full threat model, reporting process, and hardening checklist, see [SECU
 - `$DSH_HOME/mail-plugin/settings.json` contains addresses, server names, folder names, and the trusted list.
 - `$DSH_HOME/mail-plugin/drafts.json` contains full draft bodies and message metadata, including source message headers.
 - `$DSH_HOME/mail-plugin/watcher.json` contains the last UID and watcher state.
+- `$DSH_HOME/mail-plugin/contacts.json` contains the contact profiles and notes you entered.
 - Files are written with owner-only permissions where the platform supports it. Protect the DSH home directory and backups accordingly.
 
 ### Network and privacy

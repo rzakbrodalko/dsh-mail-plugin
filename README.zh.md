@@ -6,10 +6,11 @@
 
 这是一个社区插件，不是 DeepSeek 官方项目。
 
-- **侧边栏面板**：左侧 **邮件** 入口，包含“审核”和“设置”两个标签页。
+- **侧边栏面板**：左侧 **邮件** 入口，包含“审核”“联系人”和“设置”三个标签页。
 - **Agent 工具**：列出/读取邮件、起草 HTML 回复、发送已批准的草稿。
 - **审核机制**：未受信任收件人的回复必须由你批准后才会发送。
 - **受信任收件人**：支持精确地址（`test@example.com`）和域名（`example.com`，含子域名）。
+- **联系人档案**：为地址或域名记录姓名、关系、语言、语气和备注，帮助 Agent 选择合适的沟通方式。
 - **后台监听**：轮询新邮件并唤醒最近使用过邮件工具的会话；受信任收件人可自动发送。
 - **无运行时依赖**：基于 Node 内置模块实现的轻量 IMAP/SMTP/MIME。
 
@@ -28,7 +29,7 @@
 在 DSH 中打开 **插件 → 添加插件**，输入：
 
 ```text
-dsh-mail-plugin@1.1.0
+dsh-mail-plugin@1.2.0
 ```
 
 也可以让 Agent 使用 `plugin_manager`，`action: "install_bundle"`，`target` 填写上面的包名。安装对当前 profile 生效，重启后保留。
@@ -88,7 +89,8 @@ Agent 会调用：
 | `mail_reply` | 创建 multipart/alternative HTML 回复草稿，带线程头 |
 | `mail_send` | 发送已批准或自动批准的草稿 |
 | `mail_drafts` | 查看草稿的审核/发送状态 |
-| `mail_status` | 查看账户、审核策略、监听状态和待审核数量 |
+| `mail_contacts` | 查询或列出联系人档案 |
+| `mail_status` | 查看账户、审核策略、联系人、监听状态和待审核数量 |
 
 `mail_reply` 只创建草稿；真正发送必须调用 `mail_send`。如果返回 `reviewRequired: true`，草稿会留在 **邮件 → 审核**，Agent 无权批准。
 
@@ -103,6 +105,30 @@ Agent 会调用：
 | `*.example.com` | 等同于域名 `example.com` |
 
 条目会自动去除首尾空白并转为小写。相比整个域名，精确地址更安全。
+
+### 联系人档案
+
+**邮件 → 联系人** 用于记录地址或域名对应的人/组织，帮助 Agent 调整语言和语气：
+
+| 字段 | 示例 |
+|---|---|
+| 匹配 | `anna@client.com` 或 `client.com` |
+| 名称 | Anna Kowalska / Client Corp |
+| 关系 | 客户、供应商、同事、家人、潜在客户 |
+| 语言 | `pl`、`en` |
+| 语气 | 正式、简洁、不使用表情符号 |
+| 备注 | 财务总监；确认截止日期；抄送客户经理 |
+
+匹配规则：
+
+1. 精确地址优先于任何域名条目。
+2. 否则选择最长匹配的域名。
+3. 域名条目覆盖其子域名。
+4. 匹配不区分大小写。
+
+联系人档案**不会**改变受信任收件人或审核策略，只向模型提供上下文。档案保存在 `$DSH_HOME/mail-plugin/contacts.json`，并且对模型可见，因此不要在备注中填写密码或敏感机密。
+
+`mail_list` 返回发件人的简要联系人信息，`mail_read` 返回完整档案，`mail_reply` 返回收件人档案。`mail_contacts` 工具可查询单个地址或列出档案。
 
 ### 后台监听
 
@@ -153,6 +179,7 @@ Agent 会调用：
 - `$DSH_HOME/mail-plugin/settings.json`：地址、服务器、文件夹、信任列表。
 - `$DSH_HOME/mail-plugin/drafts.json`：完整草稿正文和邮件元数据。
 - `$DSH_HOME/mail-plugin/watcher.json`：最近 UID 和监听状态。
+- `$DSH_HOME/mail-plugin/contacts.json`：你填写的联系人档案和备注。
 - 在支持的平台上以仅所有者可读写的权限写入。请保护 DSH home 和备份。
 
 ### 网络与隐私

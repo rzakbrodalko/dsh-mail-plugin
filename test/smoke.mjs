@@ -124,5 +124,43 @@ assert.equal(service.reviewDecision([{ address: 'x@example.com' }]).required, tr
 store.getSettings().review.mode = 'never'
 assert.equal(service.reviewDecision([{ address: 'x@other.org' }]).required, false)
 
+// 6. Contact profiles: exact address wins over domain and longest domain wins.
+const domainContact = await service.saveContact({
+  match: 'client.com',
+  name: 'Client Corp',
+  relationship: 'client organization',
+  language: 'pl',
+  tone: 'formal',
+})
+const exactContact = await service.saveContact({
+  match: 'anna@client.com',
+  name: 'Anna',
+  relationship: 'client',
+  language: 'pl',
+  tone: 'concise',
+  notes: 'CFO; confirm deadlines.',
+})
+assert.equal(service.resolveContact('anna@client.com').matchedBy, 'exact')
+assert.equal(service.resolveContact('anna@client.com').contact.name, 'Anna')
+assert.equal(service.resolveContact('other@client.com').matchedBy, 'domain')
+assert.equal(service.resolveContact('anna@sub.client.com').matchedBy, 'domain')
+assert.equal(service.resolveContact('anna@other.com'), null)
+const updated = await service.saveContact({ id: exactContact.id, match: 'anna@client.com', name: 'Anna K.', relationship: 'client' })
+assert.equal(updated.name, 'Anna K.')
+await assert.rejects(() => service.saveContact({ match: 'not a domain' }), /Invalid contact domain/)
+await assert.rejects(() => service.saveContact({ match: 'client.com' }), /already exists/)
+await service.deleteContact(domainContact.id)
+assert.deepEqual(service.listContactViews('anna').map(entry => entry.name), ['Anna K.'])
+const rpcList = await service.handleRpc('contacts/list', { query: 'anna' })
+assert.equal(rpcList.contacts.length, 1)
+const rpcContact = await service.handleRpc('contacts/save', {
+  match: 'rpc@client.com',
+  name: 'RPC Contact',
+  relationship: 'prospect',
+})
+assert.equal((await service.handleRpc('contacts/list')).contacts.length, 2)
+await service.handleRpc('contacts/delete', { id: rpcContact.id })
+assert.equal((await service.handleRpc('contacts/list')).contacts.length, 1)
+
 fs.rmSync(directory, { recursive: true, force: true })
 console.log('All mail plugin smoke tests passed')

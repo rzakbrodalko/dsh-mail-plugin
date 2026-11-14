@@ -258,11 +258,20 @@ try {
   assert.equal(store.getWatcher().targetSessionId, 'session-1')
   await store.saveWatcher({ enabled: false })
 
+  await service.saveContact({
+    match: 'partner.org',
+    name: 'Partner Org',
+    relationship: 'client',
+    language: 'en',
+    tone: 'formal',
+  })
   const listed = await service.listMessages({ limit: 2 })
   assert.equal(listed.messages.length, 2)
   assert.equal(listed.messages[0].from, 'Alice <alice@partner.org>')
+  assert.equal(listed.messages[0].contact.name, 'Partner Org')
   const read = await service.readMessage({ uid: 12 })
   assert.match(read.text, /confirm the plan/)
+  assert.equal(read.contact.relationship, 'client')
   const reply = await service.createReply({
     uid: 12,
     html: '<p>Confirmed, thank you.</p>',
@@ -270,6 +279,9 @@ try {
   })
   assert.equal(reply.reviewRequired, true)
   assert.equal(reply.status, 'pending_review')
+  assert.equal(reply.contact.name, 'Partner Org')
+  assert.equal(reply.recipientContacts[0].address, 'alice@partner.org')
+  assert.equal(reply.recipientContacts[0].contact.relationship, 'client')
   const pendingList = await service.handleRpc('drafts/list')
   assert.equal(pendingList.pending.length, 1)
   assert.ok(Array.isArray(pendingList.approved))

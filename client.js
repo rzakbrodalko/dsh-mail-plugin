@@ -122,6 +122,28 @@ window.__ModuleLoader__.load({
       'Review is disabled for this mailbox': '此邮箱已关闭审核',
       'No recipient could be verified': '无法验证收件人',
       'Review is required for {recipients}': '需要审核：{recipients}',
+      'Contacts': '联系人',
+      'Contact profiles': '联系人档案',
+      'New contact': '新建联系人',
+      'Search contacts': '搜索联系人',
+      'No contacts yet. Add who people and domains are, so replies use the right language and tone.': '暂无联系人。添加人物或域名说明，让回复使用合适的语言和语气。',
+      'Contact profile': '联系人档案',
+      'Match (address or domain)': '匹配（地址或域名）',
+      'Name': '名称',
+      'Relationship': '关系',
+      'Language': '语言',
+      'Tone': '语气',
+      'Notes': '备注',
+      'Save contact': '保存联系人',
+      'Delete contact': '删除联系人',
+      'Confirm delete': '确认删除',
+      'Contact saved.': '联系人已保存。',
+      'Contact deleted.': '联系人已删除。',
+      'exact address': '精确地址',
+      'domain': '域名',
+      'Select a contact or create a new one.': '选择一个联系人或新建一个。',
+      'An exact address wins over a domain. Domain entries also cover subdomains. Profiles only guide language and tone; they never change the trusted-recipient or review policy.': '精确地址优先于域名。域名条目也覆盖子域名。联系人档案只影响语言和语气，不会改变受信任收件人或审核策略。',
+      'Stored locally under $DSH_HOME/mail-plugin. Do not put passwords or sensitive secrets in notes; they are visible to the model.': '保存在 $DSH_HOME/mail-plugin 本地。请勿在备注中填写密码或敏感机密，模型可以看到这些内容。',
     }
     const EN = Object.fromEntries(Object.keys(ZH).map(key => [key, key]))
 
@@ -337,6 +359,11 @@ window.__ModuleLoader__.load({
             onClick: () => setTab('review'),
           }, t('Review')),
           h('button', {
+            type: 'button', role: 'tab', 'aria-selected': tab === 'contacts',
+            className: tab === 'contacts' ? 'dsh-mail-tab is-active' : 'dsh-mail-tab',
+            onClick: () => setTab('contacts'),
+          }, t('Contacts')),
+          h('button', {
             type: 'button', role: 'tab', 'aria-selected': tab === 'settings',
             className: tab === 'settings' ? 'dsh-mail-tab is-active' : 'dsh-mail-tab',
             onClick: () => setTab('settings'),
@@ -423,6 +450,9 @@ window.__ModuleLoader__.load({
                     onDone: () => setSelectedId(null),
                   }),
           ),
+        ),
+        h('div', { className: tab === 'contacts' ? 'dsh-mail-scroll' : 'dsh-mail-scroll is-hidden' },
+          h(ContactsPanel, { call, t }),
         ),
         h('div', { className: tab === 'settings' ? 'dsh-mail-scroll' : 'dsh-mail-scroll is-hidden' },
           status === null
@@ -573,6 +603,219 @@ window.__ModuleLoader__.load({
         ),
         h('p', { className: 'dsh-mail-hint' },
           t('The plain-text alternative is regenerated from this HTML when the draft is saved or sent. Sending uses the configured SMTP server and appends a copy to the Sent folder when the server allows it.'),
+        ),
+      )
+    }
+
+    function ContactsPanel({ call, t }) {
+      const [contacts, setContacts] = useState([])
+      const [selectedId, setSelectedId] = useState(null)
+      const [draft, setDraft] = useState(null)
+      const [query, setQuery] = useState('')
+      const [busy, setBusy] = useState(false)
+      const [error, setError] = useState('')
+      const [notice, setNotice] = useState('')
+      const [confirmDelete, setConfirmDelete] = useState(false)
+
+      function blank() {
+        return { id: '', match: '', name: '', relationship: '', language: '', tone: '', notes: '' }
+      }
+
+      async function load(preferredId) {
+        try {
+          const result = await call('contacts/list', { limit: 500 })
+          const list = result.contacts ?? []
+          setContacts(list)
+          const wanted = preferredId ?? selectedId
+          const selected = list.find(entry => entry.id === wanted) ?? list[0] ?? null
+          if (selected !== null) {
+            setSelectedId(selected.id)
+            setDraft({ ...selected })
+            setConfirmDelete(false)
+          } else {
+            setSelectedId(null)
+            setDraft(null)
+          }
+        } catch (failure) {
+          setError(failure instanceof Error ? failure.message : String(failure))
+        }
+      }
+
+      useEffect(() => {
+        void load()
+      }, [])
+
+      useEffect(() => {
+        if (notice === '') return undefined
+        const timer = setTimeout(() => setNotice(''), 5_000)
+        return () => clearTimeout(timer)
+      }, [notice])
+
+      const filtered = contacts.filter(entry => {
+        const needle = query.trim().toLowerCase()
+        if (needle === '') return true
+        return [entry.match, entry.name, entry.relationship, entry.tone, entry.notes]
+          .some(value => String(value ?? '').toLowerCase().includes(needle))
+      })
+
+      function select(entry) {
+        setSelectedId(entry.id)
+        setDraft({ ...entry })
+        setConfirmDelete(false)
+        setError('')
+      }
+
+      function create() {
+        setSelectedId(null)
+        setDraft(blank())
+        setConfirmDelete(false)
+        setError('')
+      }
+
+      function field(key, value) {
+        setDraft(current => ({ ...current, [key]: value }))
+        setConfirmDelete(false)
+      }
+
+      async function save(event) {
+        event.preventDefault()
+        if (draft === null) return
+        setBusy(true)
+        setError('')
+        setNotice('')
+        try {
+          const saved = await call('contacts/save', draft)
+          await load(saved.id)
+          setNotice(t('Contact saved.'))
+        } catch (failure) {
+          setError(failure instanceof Error ? failure.message : String(failure))
+        } finally {
+          setBusy(false)
+        }
+      }
+
+      async function remove() {
+        if (draft === null || draft.id === '') return
+        if (!confirmDelete) {
+          setConfirmDelete(true)
+          return
+        }
+        setBusy(true)
+        setError('')
+        try {
+          await call('contacts/delete', { id: draft.id })
+          setDraft(null)
+          setSelectedId(null)
+          await load(undefined)
+          setNotice(t('Contact deleted.'))
+        } catch (failure) {
+          setError(failure instanceof Error ? failure.message : String(failure))
+        } finally {
+          setConfirmDelete(false)
+          setBusy(false)
+        }
+      }
+
+      const isAddress = draft !== null && draft.match.includes('@')
+
+      return h('div', { className: 'dsh-mail-contacts' },
+        h('aside', { className: 'dsh-mail-contact-list' },
+          h('div', { className: 'dsh-mail-contact-tools' },
+            h('input', {
+              className: 'dsh-mail-input',
+              value: query,
+              placeholder: t('Search contacts'),
+              onChange: event => setQuery(event.target.value),
+            }),
+            h('button', {
+              type: 'button', className: 'dsh-mail-button', disabled: busy, onClick: create,
+            }, t('New contact')),
+          ),
+          filtered.length === 0
+            ? h('p', { className: 'dsh-mail-empty' }, t('No contacts yet. Add who people and domains are, so replies use the right language and tone.'))
+            : filtered.map(entry => h('button', {
+              key: entry.id,
+              type: 'button',
+              className: entry.id === selectedId ? 'dsh-mail-item is-active' : 'dsh-mail-item',
+              onClick: () => select(entry),
+            },
+            h('span', { className: 'dsh-mail-item-top' },
+              h('span', { className: 'dsh-mail-item-subject' }, entry.name || entry.match),
+              h('span', { className: 'dsh-mail-pill is-neutral' }, entry.match.includes('@') ? t('exact address') : t('domain')),
+            ),
+            h('span', { className: 'dsh-mail-item-to' }, entry.match),
+            entry.relationship !== '' ? h('span', { className: 'dsh-mail-item-time' }, entry.relationship) : null,
+            )),
+        ),
+        h('section', { className: 'dsh-mail-contact-editor' },
+          h('div', { className: 'dsh-mail-contact-head' },
+            h('h2', null, t('Contact profile')),
+            draft !== null ? h('span', { className: 'dsh-mail-pill is-neutral' }, isAddress ? t('exact address') : t('domain')) : null,
+          ),
+          error !== '' ? h('div', { className: 'dsh-mail-alert is-error' }, error) : null,
+          notice !== '' ? h('div', { className: 'dsh-mail-alert is-ok' }, notice) : null,
+          draft === null
+            ? h('p', { className: 'dsh-mail-empty' }, t('Select a contact or create a new one.'))
+            : h('form', { className: 'dsh-mail-contact-form', onSubmit: save },
+              h('div', { className: 'dsh-mail-grid' },
+                h(Field, {
+                  label: t('Match (address or domain)'),
+                  value: draft.match,
+                  onChange: value => field('match', value),
+                  placeholder: 'anna@client.com / client.com',
+                  required: true,
+                }),
+                h(Field, {
+                  label: t('Name'),
+                  value: draft.name,
+                  onChange: value => field('name', value),
+                  placeholder: t('Name'),
+                }),
+                h(Field, {
+                  label: t('Relationship'),
+                  value: draft.relationship,
+                  onChange: value => field('relationship', value),
+                  placeholder: t('Relationship'),
+                }),
+                h(Field, {
+                  label: t('Language'),
+                  value: draft.language,
+                  onChange: value => field('language', value),
+                  placeholder: 'pl / en',
+                }),
+                h(Field, {
+                  label: t('Tone'),
+                  value: draft.tone,
+                  onChange: value => field('tone', value),
+                  placeholder: t('Tone'),
+                }),
+              ),
+              h('label', { className: 'dsh-mail-field' },
+                h('span', { className: 'dsh-mail-label' }, t('Notes')),
+                h('textarea', {
+                  className: 'dsh-mail-textarea is-short',
+                  value: draft.notes,
+                  onChange: event => field('notes', event.target.value),
+                  placeholder: t('Notes'),
+                }),
+              ),
+              h('p', { className: 'dsh-mail-help' },
+                t('An exact address wins over a domain. Domain entries also cover subdomains. Profiles only guide language and tone; they never change the trusted-recipient or review policy.'),
+              ),
+              h('p', { className: 'dsh-mail-help' },
+                t('Stored locally under $DSH_HOME/mail-plugin. Do not put passwords or sensitive secrets in notes; they are visible to the model.'),
+              ),
+              h('div', { className: 'dsh-mail-actions' },
+                h('button', {
+                  type: 'submit', className: 'dsh-mail-button is-primary', disabled: busy,
+                }, busy ? t('Saving…') : t('Save contact')),
+                draft.id !== ''
+                  ? h('button', {
+                    type: 'button', className: 'dsh-mail-button is-danger', disabled: busy, onClick: remove,
+                  }, confirmDelete ? t('Confirm delete') : t('Delete contact'))
+                  : null,
+              ),
+            ),
         ),
       )
     }
@@ -868,6 +1111,15 @@ window.__ModuleLoader__.load({
 .dsh-mail-reason{font-size:12px;color:var(--dsw-alias-state-warn-primary);margin:6px 0 0}
 .dsh-mail-source{margin:6px 0 0;font-size:12px;color:var(--dsw-alias-label-secondary);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .dsh-mail-body.is-hidden,.dsh-mail-scroll.is-hidden{display:none}
+.dsh-mail-contacts{display:flex;gap:24px;align-items:flex-start}
+.dsh-mail-contact-list{width:clamp(260px,30vw,380px);flex:none}
+.dsh-mail-contact-tools{display:flex;gap:8px;align-items:center;margin-bottom:12px}
+.dsh-mail-contact-tools .dsh-mail-input{flex:1;min-width:0}
+.dsh-mail-contact-editor{flex:1;min-width:0}
+.dsh-mail-contact-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.dsh-mail-contact-head h2{margin:0;font-size:16px;font-weight:500}
+.dsh-mail-contact-form{display:flex;flex-direction:column;gap:12px;max-width:760px}
+@media (max-width:900px){.dsh-mail-contacts{flex-direction:column}.dsh-mail-contact-list{width:100%}}
 .dsh-mail-panes{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px;min-width:0}
 @media (max-width:1000px){.dsh-mail-panes{grid-template-columns:1fr}}
 .dsh-mail-pane{display:flex;flex-direction:column;min-width:0;gap:6px}

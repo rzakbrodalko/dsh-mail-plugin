@@ -2,7 +2,7 @@
 
 English | [中文](DETAIL.zh.md)
 
-Read a mailbox over IMAP and send reviewed, multipart HTML replies from a DeepSeek Harness session. The plugin adds a **Mail** entry to the left sidebar and six tools the model can call.
+Read a mailbox over IMAP and send reviewed, multipart HTML replies from a DeepSeek Harness session. The plugin adds a **Mail** entry to the left sidebar and seven tools the model can call.
 
 ## What it does
 
@@ -15,6 +15,7 @@ Read a mailbox over IMAP and send reviewed, multipart HTML replies from a DeepSe
   - *Review all, except trusted recipients* (default) — drafts whose recipients are all covered by the list are approved automatically; every other draft waits for review. Each list entry is either a **domain** (`example.com`, which also covers its subdomains) or an **exact address** (`test@example.com`, which covers only that mailbox).
   - *Always review* — every draft waits.
   - *Never review* — drafts are approved automatically.
+- **Contact profiles** — in **Mail → Contacts**, describe who an address or domain is: name, relationship, language, tone, and notes. Exact addresses win over domains, and domain entries cover subdomains. Profiles only guide language and tone; they never change trust or review authorization. `mail_list`, `mail_read`, and `mail_reply` include the applicable profile, and `mail_contacts` can look one up.
 - **Send** — `mail_send` delivers an approved draft over SMTP and appends a copy to the configured Sent folder when the server permits it. It refuses drafts that are still awaiting review or were rejected.
 
 ## Configure the mailbox
@@ -40,7 +41,7 @@ To enable automatic replies, open **Mail → Settings → Automatic replies**, t
 4. For a draft that requires review, open **Mail → Review**, inspect the rendered message, edit if needed, then **Approve & send**. The model can then confirm the send, or the panel sends directly during approval.
 5. For a trusted recipient, the draft is approved automatically; the model sends it with `mail_send`.
 
-The model can check status with `mail_drafts` and `mail_status`. It cannot approve a draft: approval is a user action in the panel.
+The model can check status with `mail_drafts`, `mail_contacts`, and `mail_status`. It cannot approve a draft: approval is a user action in the panel.
 
 ## Limitations
 

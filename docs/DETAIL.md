@@ -15,7 +15,7 @@ Read a mailbox over IMAP and send reviewed, multipart HTML replies from a DeepSe
   - *Review all, except trusted recipients* (default) — drafts whose recipients are all covered by the list are approved automatically; every other draft waits for review. Each list entry is either a **domain** (`example.com`, which also covers its subdomains) or an **exact address** (`test@example.com`, which covers only that mailbox).
   - *Always review* — every draft waits.
   - *Never review* — drafts are approved automatically.
-- **Contact profiles** — in **Mail → Contacts**, describe who an address or domain is: name, relationship, language, tone, and notes. Exact addresses win over domains, and domain entries cover subdomains. Profiles only guide language and tone; they never change trust or review authorization. `mail_list`, `mail_read`, and `mail_reply` include the applicable profile, and `mail_contacts` can look one up.
+- **Contact profiles** — in **Mail → Contacts**, describe who an address or domain is: name, relationship, language, tone, and notes. Exact addresses win over domains, and domain entries cover subdomains. A green badge marks exact addresses and a blue badge marks domains. Profiles only guide language and tone; they never change trust or review authorization. `mail_list`, `mail_read`, and `mail_reply` include the applicable profile, and `mail_contacts` can look one up.
 - **Send** — `mail_send` delivers an approved draft over SMTP and appends a copy to the configured Sent folder when the server permits it. It refuses drafts that are still awaiting review or were rejected.
 
 ## Configure the mailbox

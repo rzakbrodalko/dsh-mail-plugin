@@ -8,6 +8,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 - **Contact profiles** for addresses and domains: name, relationship, preferred language, tone, and free-form notes.
 - A **Contacts** tab in the Mail panel with search, create, edit, and delete.
+- Distinct contact-type badges: green dot for exact addresses, blue dot for domains.
 - Contact matching with exact-address precedence and longest-domain fallback; domains cover subdomains.
 - `mail_contacts` lookup tool.
 - Contact enrichment in `mail_list`, `mail_read`, and `mail_reply` so the agent can adapt language and tone.

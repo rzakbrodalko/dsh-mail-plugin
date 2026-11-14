@@ -126,6 +126,8 @@ Matching rules:
 3. Domain entries cover their subdomains.
 4. Matching is case-insensitive.
 
+The list uses a **green badge with a dot** for exact addresses and a **blue badge with a dot** for domains, so the scope is clear at a glance.
+
 Contact profiles **never** change the trusted-recipient list or the review policy. They only give the model context. Profiles are stored in `$DSH_HOME/mail-plugin/contacts.json` and are visible to the model, so do not put passwords or sensitive secrets in notes.
 
 `mail_list` includes a compact contact summary, `mail_read` includes the full sender profile, and `mail_reply` includes recipient profiles. The `mail_contacts` tool looks up one address or lists saved profiles.

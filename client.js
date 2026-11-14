@@ -741,7 +741,7 @@ window.__ModuleLoader__.load({
             },
             h('span', { className: 'dsh-mail-item-top' },
               h('span', { className: 'dsh-mail-item-subject' }, entry.name || entry.match),
-              h('span', { className: 'dsh-mail-pill is-neutral' }, entry.match.includes('@') ? t('exact address') : t('domain')),
+              h('span', { className: entry.match.includes('@') ? 'dsh-mail-pill is-exact' : 'dsh-mail-pill is-domain' }, entry.match.includes('@') ? t('exact address') : t('domain')),
             ),
             h('span', { className: 'dsh-mail-item-to' }, entry.match),
             entry.relationship !== '' ? h('span', { className: 'dsh-mail-item-time' }, entry.relationship) : null,
@@ -750,7 +750,7 @@ window.__ModuleLoader__.load({
         h('section', { className: 'dsh-mail-contact-editor' },
           h('div', { className: 'dsh-mail-contact-head' },
             h('h2', null, t('Contact profile')),
-            draft !== null ? h('span', { className: 'dsh-mail-pill is-neutral' }, isAddress ? t('exact address') : t('domain')) : null,
+            draft !== null ? h('span', { className: isAddress ? 'dsh-mail-pill is-exact' : 'dsh-mail-pill is-domain' }, isAddress ? t('exact address') : t('domain')) : null,
           ),
           error !== '' ? h('div', { className: 'dsh-mail-alert is-error' }, error) : null,
           notice !== '' ? h('div', { className: 'dsh-mail-alert is-ok' }, notice) : null,
@@ -1100,6 +1100,10 @@ window.__ModuleLoader__.load({
 .dsh-mail-pill.is-warn{color:var(--dsw-alias-state-warn-primary);background:color-mix(in srgb,var(--dsw-alias-state-warn-primary) 14%,transparent)}
 .dsh-mail-pill.is-ok{color:var(--dsw-alias-state-success-primary);background:color-mix(in srgb,var(--dsw-alias-state-success-primary) 14%,transparent)}
 .dsh-mail-pill.is-error{color:var(--dsw-alias-state-error-primary);background:color-mix(in srgb,var(--dsw-alias-state-error-primary) 14%,transparent)}
+.dsh-mail-pill.is-exact,.dsh-mail-pill.is-domain{display:inline-flex;align-items:center;gap:5px;padding:0 8px 0 7px;font-weight:600;letter-spacing:.02em;text-transform:capitalize;border:1px solid transparent}
+.dsh-mail-pill.is-exact::before,.dsh-mail-pill.is-domain::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor;box-shadow:0 0 0 2px color-mix(in srgb,currentColor 18%,transparent);flex:none}
+.dsh-mail-pill.is-exact{color:var(--dsw-alias-state-success-primary);background:color-mix(in srgb,var(--dsw-alias-state-success-primary) 12%,transparent);border-color:color-mix(in srgb,var(--dsw-alias-state-success-primary) 32%,transparent)}
+.dsh-mail-pill.is-domain{color:var(--dsw-alias-brand-primary);background:color-mix(in srgb,var(--dsw-alias-brand-primary) 12%,transparent);border-color:color-mix(in srgb,var(--dsw-alias-brand-primary) 32%,transparent)}
 .dsh-mail-recent{margin-top:20px;border-top:1px solid var(--dsw-alias-border-l1);padding-top:10px}
 .dsh-mail-recent-row{display:flex;justify-content:space-between;gap:8px;padding:4px 8px;font-size:12px;color:var(--dsw-alias-label-secondary)}
 .dsh-mail-recent-subject{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

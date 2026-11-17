@@ -640,56 +640,58 @@ window.__ModuleLoader__.load({
         element.remove()
       }
 
-      function saveSelection() {
+      function selectionOffsets(editor) {
         const selection = window.getSelection()
         if (selection === null || selection.rangeCount === 0) return null
-        return selection.getRangeAt(0).cloneRange()
+        const range = selection.getRangeAt(0)
+        if (!editor.contains(range.startContainer) || !editor.contains(range.endContainer)) return null
+        const before = range.cloneRange()
+        before.selectNodeContents(editor)
+        before.setEnd(range.startContainer, range.startOffset)
+        const start = before.toString().length
+        return { start, end: start + range.toString().length }
       }
 
-      function restoreSelection(range) {
-        if (range === null) return
+      function pointAtTextOffset(editor, target) {
+        let remaining = Math.max(0, target)
+        const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT)
+        let node = walker.nextNode()
+        let last = null
+        while (node !== null) {
+          last = node
+          const length = node.nodeValue?.length ?? 0
+          if (remaining <= length) return { node, offset: remaining }
+          remaining -= length
+          node = walker.nextNode()
+        }
+        if (last !== null) return { node: last, offset: last.nodeValue?.length ?? 0 }
+        return { node: editor, offset: editor.childNodes.length }
+      }
+
+      function restoreOffsets(editor, offsets) {
+        if (offsets === null) return
+        editor.focus()
+        const start = pointAtTextOffset(editor, offsets.start)
+        const end = pointAtTextOffset(editor, offsets.end)
+        const range = document.createRange()
+        range.setStart(start.node, start.offset)
+        range.setEnd(end.node, end.offset)
         const selection = window.getSelection()
         if (selection === null) return
-        try {
-          selection.removeAllRanges()
-          selection.addRange(range)
-        } catch {
-          // A detached range is ignored; the editor keeps its current caret.
-        }
+        selection.removeAllRanges()
+        selection.addRange(range)
       }
 
-      function restoreAfterRender(editor, range) {
-        const apply = () => {
-          if (!editor.isConnected) return
-          editor.focus()
-          if (range !== null && editor.contains(range.commonAncestorContainer)) {
-            restoreSelection(range)
-          }
-        }
-        apply()
-        requestAnimationFrame(apply)
-      }
-
-      function placeCaretAtEnd(element) {
-        const range = document.createRange()
-        range.selectNodeContents(element)
-        range.collapse(false)
-        restoreSelection(range)
-      }
-
-      function selectionInside(element) {
-        const selection = window.getSelection()
-        return selection !== null
-          && selection.rangeCount > 0
-          && selection.anchorNode !== null
-          && element.contains(selection.anchorNode)
+      function restoreAfterRender(editor, offsets) {
+        restoreOffsets(editor, offsets)
+        requestAnimationFrame(() => restoreOffsets(editor, offsets))
       }
 
       function toggleQuote() {
         if (!editable) return
         const editor = editorRef.current
         if (editor === null) return
-        const savedRange = saveSelection()
+        const offsets = selectionOffsets(editor)
         editor.focus()
         const node = selectedElement()
         if (node === null || !editor.contains(node)) return
@@ -700,16 +702,8 @@ window.__ModuleLoader__.load({
             unwrapElement(current)
             current = node.closest('blockquote')
           }
-          editor.focus()
           syncEditor()
-          restoreAfterRender(editor, savedRange)
-          const anchor = node.closest('p,h1,h2,h3,h4,li,ul,ol') ?? editor
-          requestAnimationFrame(() => {
-            if (!selectionInside(anchor)) {
-              editor.focus()
-              placeCaretAtEnd(anchor)
-            }
-          })
+          restoreAfterRender(editor, offsets)
           return
         }
         const block = node.closest('p,h1,h2,h3,h4,li,ul,ol')
@@ -719,15 +713,8 @@ window.__ModuleLoader__.load({
         const wrapper = document.createElement('blockquote')
         target.parentNode.insertBefore(wrapper, target)
         wrapper.appendChild(target)
-        editor.focus()
         syncEditor()
-        restoreAfterRender(editor, savedRange)
-        requestAnimationFrame(() => {
-          if (!selectionInside(wrapper)) {
-            editor.focus()
-            placeCaretAtEnd(wrapper)
-          }
-        })
+        restoreAfterRender(editor, offsets)
       }
 
       function toggleBlock(tag) {
@@ -739,7 +726,7 @@ window.__ModuleLoader__.load({
         if (!editable) return
         const editor = editorRef.current
         if (editor === null) return
-        const savedRange = saveSelection()
+        const offsets = selectionOffsets(editor)
         editor.focus()
         try {
           const node = selectedElement()
@@ -748,8 +735,7 @@ window.__ModuleLoader__.load({
             unwrapElement(quote)
             quote = node.closest('blockquote')
           }
-          editor.focus()
-          restoreSelection(savedRange)
+          restoreOffsets(editor, offsets)
           document.execCommand('removeFormat')
           document.execCommand('unlink')
           document.execCommand('formatBlock', false, '<p>')
@@ -759,6 +745,7 @@ window.__ModuleLoader__.load({
           // Keep typing available if the embedded browser rejects a command.
         }
         syncEditor()
+        requestAnimationFrame(() => restoreOffsets(editor, offsets))
       }
 
       function addLink() {

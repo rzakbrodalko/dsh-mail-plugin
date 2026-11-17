@@ -307,6 +307,8 @@ window.__ModuleLoader__.load({
       const [tab, setTab] = useState('review')
       const [selectedId, setSelectedId] = useState(null)
       const [detail, setDetail] = useState(null)
+      const [detailError, setDetailError] = useState('')
+      const [detailNonce, setDetailNonce] = useState(0)
       const [busy, setBusy] = useState(false)
       const [error, setError] = useState('')
       const [notice, setNotice] = useState('')
@@ -360,21 +362,23 @@ window.__ModuleLoader__.load({
       useEffect(() => {
         if (selectedId === null) {
           setDetail(null)
+          setDetailError('')
           return undefined
         }
         setDetail(null)
+        setDetailError('')
         let cancelled = false
         call('draft/get', { id: selectedId })
           .then(next => {
             if (!cancelled) setDetail(next)
           })
           .catch(failure => {
-            if (!cancelled) setError(failure instanceof Error ? failure.message : String(failure))
+            if (!cancelled) setDetailError(failure instanceof Error ? failure.message : String(failure))
           })
         return () => {
           cancelled = true
         }
-      }, [selectedId])
+      }, [selectedId, detailNonce])
 
       async function run(operation, success) {
         setBusy(true)
@@ -463,6 +467,10 @@ window.__ModuleLoader__.load({
                 type: 'button',
                 className: draft.id === selectedId ? 'dsh-mail-item is-active' : 'dsh-mail-item',
                 onClick: () => {
+                  if (draft.id === selectedId) {
+                    if (detail === null) setDetailNonce(value => value + 1)
+                    return
+                  }
                   setDetail(null)
                   setSelectedId(draft.id)
                 },
@@ -502,7 +510,16 @@ window.__ModuleLoader__.load({
               : !configured
                 ? h(EmptyState, { onOpenSettings: () => setTab('settings'), t })
                 : detail === null
-                  ? h('p', { className: 'dsh-mail-empty' }, selectedId === null ? t('Select a draft to review it.') : t('Loading draft…'))
+                  ? detailError !== ''
+                    ? h('div', { className: 'dsh-mail-detail-error' },
+                      h('p', { className: 'dsh-mail-empty' }, detailError),
+                      h('button', {
+                        type: 'button',
+                        className: 'dsh-mail-button',
+                        onClick: () => setDetailNonce(value => value + 1),
+                      }, t('Retry')),
+                    )
+                    : h('p', { className: 'dsh-mail-empty' }, selectedId === null ? t('Select a draft to review it.') : t('Loading draft…'))
                   : h(DraftView, {
                     key: `${detail.id}:${detail.updatedAt}`,
                     draft: detail,
@@ -1393,6 +1410,7 @@ window.__ModuleLoader__.load({
 .dsh-mail-button.is-quiet{border-color:transparent;background:transparent;color:var(--dsw-alias-label-secondary)}
 .dsh-mail-button.is-quiet:hover:not(:disabled){background:var(--dsw-alias-bg-layer-2);border-color:transparent;color:var(--dsw-alias-label-primary)}
 .dsh-mail-empty{margin:18px 8px;color:var(--dsw-alias-label-secondary);font-size:13px}
+.dsh-mail-detail-error{display:flex;flex-direction:column;align-items:flex-start;gap:8px}
 .dsh-mail-emptystate{max-width:520px;margin:24px 0;padding:22px;border:1px solid var(--dsw-alias-border-l1);border-radius:14px;background:var(--dsw-alias-bg-layer-1)}
 .dsh-mail-emptystate h2{margin:0 0 8px;font-size:16px;font-weight:500}
 .dsh-mail-emptystate p{margin:0 0 16px;color:var(--dsw-alias-label-secondary);font-size:13px}

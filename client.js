@@ -608,6 +608,37 @@ window.__ModuleLoader__.load({
         syncEditor()
       }
 
+      function currentBlockTag() {
+        const selection = window.getSelection()
+        if (selection === null || selection.rangeCount === 0) return 'p'
+        let node = selection.anchorNode
+        if (node !== null && node.nodeType === 3) node = node.parentElement
+        const block = node?.closest?.('h1,h2,h3,h4,blockquote,p,li')
+        return block?.tagName.toLowerCase() ?? 'p'
+      }
+
+      function toggleBlock(tag) {
+        const target = currentBlockTag() === tag ? 'p' : tag
+        applyCommand('formatBlock', `<${target}>`)
+      }
+
+      function clearFormatting() {
+        if (!editable) return
+        const editor = editorRef.current
+        if (editor === null) return
+        editor.focus()
+        try {
+          document.execCommand('removeFormat')
+          document.execCommand('unlink')
+          document.execCommand('formatBlock', false, '<p>')
+          if (document.queryCommandState('insertUnorderedList')) document.execCommand('insertUnorderedList')
+          if (document.queryCommandState('insertOrderedList')) document.execCommand('insertOrderedList')
+        } catch {
+          // Keep typing available if the embedded browser rejects a command.
+        }
+        syncEditor()
+      }
+
       function addLink() {
         if (!editable) return
         const editor = editorRef.current
@@ -661,6 +692,18 @@ window.__ModuleLoader__.load({
         }, label)
       }
 
+      function blockTool(label, tag, title) {
+        return h('button', {
+          type: 'button',
+          className: 'dsh-mail-tool',
+          disabled: !editable || busy,
+          title: t(title),
+          'aria-label': t(title),
+          onMouseDown: event => event.preventDefault(),
+          onClick: () => toggleBlock(tag),
+        }, label)
+      }
+
       async function sendCurrent(action) {
         if (dirty) {
           const saved = await onSave({ html, subject })
@@ -711,11 +754,11 @@ window.__ModuleLoader__.load({
             tool('B', 'bold', 'Bold'),
             tool('I', 'italic', 'Italic'),
             tool('U', 'underline', 'Underline'),
-            tool('H2', 'formatBlock', 'Heading 2', '<h2>'),
-            tool('H3', 'formatBlock', 'Heading 3', '<h3>'),
+            blockTool('H2', 'h2', 'Heading 2'),
+            blockTool('H3', 'h3', 'Heading 3'),
             tool('•', 'insertUnorderedList', 'Bulleted list'),
             tool('1.', 'insertOrderedList', 'Numbered list'),
-            tool('❝', 'formatBlock', 'Quote', '<blockquote>'),
+            blockTool('❝', 'blockquote', 'Quote'),
             h('button', {
               type: 'button',
               className: 'dsh-mail-tool',
@@ -725,7 +768,15 @@ window.__ModuleLoader__.load({
               onMouseDown: event => event.preventDefault(),
               onClick: addLink,
             }, '🔗'),
-            tool('⌫', 'removeFormat', 'Clear formatting'),
+            h('button', {
+              type: 'button',
+              className: 'dsh-mail-tool',
+              disabled: !editable || busy,
+              title: t('Clear formatting'),
+              'aria-label': t('Clear formatting'),
+              onMouseDown: event => event.preventDefault(),
+              onClick: clearFormatting,
+            }, '⌫'),
             tool('↶', 'undo', 'Undo'),
             tool('↷', 'redo', 'Redo'),
           ),

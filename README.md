@@ -9,7 +9,7 @@ A community plugin for DSH. It is not an official DeepSeek project.
 - **Sidebar panel** — `Mail` in the left sidebar, with Review, Contacts, and Settings tabs.
 - **Agent tools** — list/read mail, draft HTML replies, send approved drafts.
 - **Review gate** — replies to untrusted recipients wait for your approval.
-- **Visual review editor** — format replies directly, with an email-safe preview; raw HTML remains available as an advanced option.
+- **Visual review editor** — format replies directly; raw HTML remains available as an advanced option.
 - **Trusted recipients** — whitelist exact addresses (`test@example.com`) or domains (`example.com`, including subdomains).
 - **Incoming attachments** — save decoded attachments to a bounded local folder with safe names, then inspect them with normal DSH tools.
 - **Background watcher** — polls for new mail and wakes the session that last used a Mail tool; trusted replies can be sent automatically.
@@ -97,7 +97,7 @@ A reply is delivered only by `mail_send`. If `mail_reply` reports `reviewRequire
 
 ### Review editor
 
-The review panel opens on a **visual editor** with basic email formatting: bold, italic, underline, headings, bulleted and numbered lists, quotes, links, clear formatting, undo, and redo. Use the **Edit / Preview** toggle to switch to a sandboxed rendering of the email; Edit is the default, so the message is not shown twice.
+The review panel opens on the **only** editing surface: a visual editor with basic email formatting: bold, italic, underline, headings, bulleted and numbered lists, quotes, links, clear formatting, undo, and redo. The message is not duplicated by a separate preview; raw HTML remains available under **Advanced: HTML source** for tables, images, and precise markup.
 
 - Pasted content is sanitized: scripts, iframes, event handlers, and unsafe URLs are removed.
 - **Advanced: HTML source** is collapsed by default for precise markup, tables, or images.
@@ -219,7 +219,7 @@ For the full threat model, reporting process, and hardening checklist, see [SECU
 
 ### Network and privacy
 
-The plugin talks only to the IMAP and SMTP servers you configure. It contains no telemetry, analytics, or third-party HTTP calls. The review preview is sandboxed and blocks remote images and scripts, so tracking pixels do not load while you review.
+The plugin talks only to the IMAP and SMTP servers you configure. It contains no telemetry, analytics, or third-party HTTP calls. The visual editor sanitizes draft markup before displaying it: scripts, iframes, event handlers, unsafe URLs, and remote image URLs are removed. Use **Advanced: HTML source** for image markup; remote images are not loaded in the visual editor.
 
 ### Hardening checklist
 

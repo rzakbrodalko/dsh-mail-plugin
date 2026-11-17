@@ -35,8 +35,6 @@ window.__ModuleLoader__.load({
       'Connect a mailbox': '连接邮箱',
       'Add the mailbox address, IMAP and SMTP servers, and password. The password is kept in the DSH credential store, never in the plugin configuration.': '填写邮箱地址、IMAP 和 SMTP 服务器以及密码。密码保存在 DSH 凭据存储中，不会写入插件配置。',
       'Open settings': '打开设置',
-      'Nothing to preview yet.': '暂无可预览内容。',
-      'Reply preview': '回复预览',
       'To: {to}': '收件人：{to}',
       'Cc: {cc}': '抄送：{cc}',
       'In reply to: {subject}': '回复：{subject}',
@@ -49,11 +47,8 @@ window.__ModuleLoader__.load({
       'Approved': '已批准',
       'Original: {text}': '原文：{text}',
       'Subject': '主题',
-      'Rendered HTML': 'HTML 预览',
       'HTML source': 'HTML 源码',
       'Visual editor': '可视化编辑器',
-      'Edit': '编辑',
-      'Preview': '预览',
       'Basic formatting': '基础格式',
       'Bold': '粗体',
       'Italic': '斜体',
@@ -190,7 +185,7 @@ window.__ModuleLoader__.load({
     ])
 
     /** Strip markup and attributes that should never enter the visual editor. */
-    function sanitizePastedHtml(input) {
+    function sanitizeEditorHtml(input) {
       const doc = new DOMParser().parseFromString(String(input ?? ''), 'text/html')
       const unsafe = new Set(['script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'button', 'link', 'meta', 'base', 'title'])
       function walk(node) {
@@ -219,7 +214,7 @@ window.__ModuleLoader__.load({
           }
           const value = attribute.value.trim()
           if (name === 'href' && !/^(https?:|mailto:|#)/i.test(value)) node.removeAttribute(attribute.name)
-          if (name === 'src' && !/^(https?:|data:image\/)/i.test(value)) node.removeAttribute(attribute.name)
+          if (name === 'src' && !/^data:image\//i.test(value)) node.removeAttribute(attribute.name)
           if (name === 'style' && /(expression|behavior\s*:|url\s*\(\s*['"]?\s*javascript:)/i.test(value)) {
             node.removeAttribute(attribute.name)
           }
@@ -581,7 +576,6 @@ window.__ModuleLoader__.load({
       const [html, setHtml] = useState(draft.html)
       const [subject, setSubject] = useState(draft.subject)
       const [confirm, setConfirm] = useState('')
-      const [mode, setMode] = useState('edit')
       const editorRef = useRef(null)
       const dirty = html !== draft.html || subject !== draft.subject
       const editable = draft.status !== 'sent' && draft.status !== 'rejected'
@@ -593,9 +587,9 @@ window.__ModuleLoader__.load({
         const editor = editorRef.current
         if (editor === null) return
         if (document.activeElement !== editor && editor.innerHTML !== html) {
-          editor.innerHTML = html
+          editor.innerHTML = sanitizeEditorHtml(html)
         }
-      }, [html, editable, mode])
+      }, [html, editable])
 
       function syncEditor() {
         if (editorRef.current !== null) setHtml(editorRef.current.innerHTML)
@@ -649,7 +643,7 @@ window.__ModuleLoader__.load({
         if (clipboard === null) return
         const rich = clipboard.getData('text/html')
         const plain = clipboard.getData('text/plain')
-        const safe = rich.trim() === '' ? plainTextToHtml(plain) : sanitizePastedHtml(rich)
+        const safe = rich.trim() === '' ? plainTextToHtml(plain) : sanitizeEditorHtml(rich)
         editorRef.current?.focus()
         document.execCommand('insertHTML', false, safe)
         syncEditor()
@@ -674,14 +668,6 @@ window.__ModuleLoader__.load({
         }
         await action()
       }
-      const preview = html.trim() === ''
-        ? h('p', { className: 'dsh-mail-empty' }, t('Nothing to preview yet.'))
-        : h('iframe', {
-          className: 'dsh-mail-preview',
-          sandbox: '',
-          srcDoc: `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; font-src data:"><style>body{font:14px/1.55 -apple-system,Segoe UI,sans-serif;color:#1f2328;background:#fff;margin:16px}img{max-width:100%}</style></head><body>${html}</body></html>`,
-          title: t('Reply preview'),
-        })
       return h(React.Fragment, null,
         h('div', { className: 'dsh-mail-detail-head' },
           h('div', null,
@@ -716,76 +702,58 @@ window.__ModuleLoader__.load({
             onChange: event => { setConfirm(''); setSubject(event.target.value) },
           }),
         ),
-        h('div', { className: 'dsh-mail-review' },
-          h('div', { className: 'dsh-mail-review-bar' },
-            h('div', { className: 'dsh-mail-review-tabs', role: 'tablist' },
-              h('button', {
-                type: 'button', role: 'tab', 'aria-selected': mode === 'edit',
-                className: mode === 'edit' ? 'dsh-mail-review-tab is-active' : 'dsh-mail-review-tab',
-                onClick: () => setMode('edit'),
-              }, t('Edit')),
-              h('button', {
-                type: 'button', role: 'tab', 'aria-selected': mode === 'preview',
-                className: mode === 'preview' ? 'dsh-mail-review-tab is-active' : 'dsh-mail-review-tab',
-                onClick: () => setMode('preview'),
-              }, t('Preview')),
-            ),
+        h('div', { className: 'dsh-mail-pane dsh-mail-review' },
+          h('div', { className: 'dsh-mail-pane-head' },
+            h('div', { className: 'dsh-mail-pane-title' }, t('Visual editor')),
+            h('span', { className: 'dsh-mail-editor-hint' }, t('Basic formatting')),
           ),
-          mode === 'edit'
-            ? h('div', { className: 'dsh-mail-pane' },
-              h('div', { className: 'dsh-mail-pane-head' },
-                h('div', { className: 'dsh-mail-pane-title' }, t('Visual editor')),
-                h('span', { className: 'dsh-mail-editor-hint' }, t('Basic formatting')),
-              ),
-              h('div', { className: 'dsh-mail-toolbar' },
-                tool('B', 'bold', 'Bold'),
-                tool('I', 'italic', 'Italic'),
-                tool('U', 'underline', 'Underline'),
-                tool('H2', 'formatBlock', 'Heading 2', '<h2>'),
-                tool('H3', 'formatBlock', 'Heading 3', '<h3>'),
-                tool('•', 'insertUnorderedList', 'Bulleted list'),
-                tool('1.', 'insertOrderedList', 'Numbered list'),
-                tool('❝', 'formatBlock', 'Quote', '<blockquote>'),
-                h('button', {
-                  type: 'button',
-                  className: 'dsh-mail-tool',
-                  disabled: !editable || busy,
-                  title: t('Link'),
-                  'aria-label': t('Link'),
-                  onMouseDown: event => event.preventDefault(),
-                  onClick: addLink,
-                }, '🔗'),
-                tool('⌫', 'removeFormat', 'Clear formatting'),
-                tool('↶', 'undo', 'Undo'),
-                tool('↷', 'redo', 'Redo'),
-              ),
-              h('div', {
-                className: 'dsh-mail-editor',
-                ref: editorRef,
-                contentEditable: editable,
-                suppressContentEditableWarning: true,
-                spellCheck: false,
-                role: 'textbox',
-                'aria-multiline': 'true',
-                'aria-label': t('Visual editor'),
-                'data-placeholder': t('Write the reply…'),
-                onInput: event => { setConfirm(''); setHtml(event.currentTarget.innerHTML) },
-                onPaste: pasteEditor,
-              }),
-              h('p', { className: 'dsh-mail-editor-help' },
-                t('Visual editing is simplified; use Advanced HTML for tables or images.')),
-              h('details', { className: 'dsh-mail-advanced' },
-                h('summary', null, t('Advanced: HTML source')),
-                h('textarea', {
-                  className: 'dsh-mail-textarea',
-                  value: html,
-                  disabled: !editable,
-                  spellCheck: false,
-                  onChange: event => { setConfirm(''); setHtml(event.target.value) },
-                }),
-              ),
-            )
-            : h('div', { className: 'dsh-mail-pane dsh-mail-preview-pane' }, preview),
+          h('div', { className: 'dsh-mail-toolbar' },
+            tool('B', 'bold', 'Bold'),
+            tool('I', 'italic', 'Italic'),
+            tool('U', 'underline', 'Underline'),
+            tool('H2', 'formatBlock', 'Heading 2', '<h2>'),
+            tool('H3', 'formatBlock', 'Heading 3', '<h3>'),
+            tool('•', 'insertUnorderedList', 'Bulleted list'),
+            tool('1.', 'insertOrderedList', 'Numbered list'),
+            tool('❝', 'formatBlock', 'Quote', '<blockquote>'),
+            h('button', {
+              type: 'button',
+              className: 'dsh-mail-tool',
+              disabled: !editable || busy,
+              title: t('Link'),
+              'aria-label': t('Link'),
+              onMouseDown: event => event.preventDefault(),
+              onClick: addLink,
+            }, '🔗'),
+            tool('⌫', 'removeFormat', 'Clear formatting'),
+            tool('↶', 'undo', 'Undo'),
+            tool('↷', 'redo', 'Redo'),
+          ),
+          h('div', {
+            className: 'dsh-mail-editor',
+            ref: editorRef,
+            contentEditable: editable,
+            suppressContentEditableWarning: true,
+            spellCheck: false,
+            role: 'textbox',
+            'aria-multiline': 'true',
+            'aria-label': t('Visual editor'),
+            'data-placeholder': t('Write the reply…'),
+            onInput: event => { setConfirm(''); setHtml(event.currentTarget.innerHTML) },
+            onPaste: pasteEditor,
+          }),
+          h('p', { className: 'dsh-mail-editor-help' },
+            t('Visual editing is simplified; use Advanced HTML for tables or images.')),
+          h('details', { className: 'dsh-mail-advanced' },
+            h('summary', null, t('Advanced: HTML source')),
+            h('textarea', {
+              className: 'dsh-mail-textarea',
+              value: html,
+              disabled: !editable,
+              spellCheck: false,
+              onChange: event => { setConfirm(''); setHtml(event.target.value) },
+            }),
+          ),
         ),
         h('div', { className: 'dsh-mail-actions' },
           draft.status === 'pending_review'
@@ -1354,16 +1322,7 @@ window.__ModuleLoader__.load({
 .dsh-mail-contact-head h2{margin:0;font-size:16px;font-weight:500}
 .dsh-mail-contact-form{display:flex;flex-direction:column;gap:12px;max-width:760px}
 @media (max-width:900px){.dsh-mail-contacts{flex-direction:column}.dsh-mail-contact-list{width:100%}}
-.dsh-mail-panes{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px;min-width:0}
-@media (max-width:1000px){.dsh-mail-panes{grid-template-columns:1fr}}
 .dsh-mail-review{margin-top:14px;min-width:0}
-.dsh-mail-review-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
-.dsh-mail-review-tabs{display:inline-flex;gap:2px;padding:2px;border-radius:8px;background:var(--dsw-alias-bg-layer-2)}
-.dsh-mail-review-tab{appearance:none;height:28px;padding:0 12px;border:0;border-radius:6px;background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:12px;cursor:pointer}
-.dsh-mail-review-tab:hover{color:var(--dsw-alias-label-primary)}
-.dsh-mail-review-tab.is-active{background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);box-shadow:0 1px 3px rgba(0,0,0,.08)}
-.dsh-mail-review-tab:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}
-.dsh-mail-review .dsh-mail-preview{height:460px}
 .dsh-mail-review .dsh-mail-editor{min-height:420px}
 .dsh-mail-pane{display:flex;flex-direction:column;min-width:0;gap:6px}
 .dsh-mail-pane-title{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--dsw-alias-label-secondary)}
@@ -1391,7 +1350,6 @@ window.__ModuleLoader__.load({
 .dsh-mail-advanced summary{cursor:pointer;font-size:12px;color:var(--dsw-alias-label-secondary)}
 .dsh-mail-advanced summary:hover{color:var(--dsw-alias-label-primary)}
 .dsh-mail-advanced .dsh-mail-textarea{margin-top:8px;min-height:180px}
-.dsh-mail-preview{width:100%;height:300px;border:1px solid var(--dsw-alias-border-l1);border-radius:10px;background:#fff}
 .dsh-mail-textarea{width:100%;min-height:300px;resize:vertical;border:1px solid var(--dsw-alias-border-l1);border-radius:10px;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font:12.5px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace;padding:10px 12px;box-sizing:border-box}
 .dsh-mail-textarea.is-short{min-height:84px;font-family:inherit;font-size:13px}
 .dsh-mail-textarea:focus,.dsh-mail-input:focus{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}

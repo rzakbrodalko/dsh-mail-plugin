@@ -48,7 +48,7 @@ git push gitee main --tags
 主安装方式仍然是 npm：
 
 ```text
-dsh-mail-plugin@1.3.0
+dsh-mail-plugin@1.4.0
 ```
 
 中国大陆网络可选：

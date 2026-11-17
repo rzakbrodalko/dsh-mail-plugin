@@ -66,6 +66,20 @@ window.__ModuleLoader__.load({
       'Advanced: HTML source': '高级：HTML 源码',
       'Write the reply…': '撰写回复…',
       'Visual editing is simplified; use Advanced HTML for tables or images.': '可视化编辑会简化格式；表格或图片请使用高级 HTML。',
+      'Ask the model for changes': '让模型修改',
+      'Describe the change you want…': '描述你想要的修改…',
+      'Revise': '修改',
+      'Revising…': '修改中…',
+      'The model is revising this draft…': '模型正在修改这封草稿…',
+      'Draft revised.': '草稿已修改。',
+      'Revision failed.': '修改失败。',
+      'More specific': '更具体',
+      'Add an example': '添加示例',
+      'Shorter': '更简短',
+      'More formal': '更正式',
+      'Warmer': '更亲切',
+      'Last request: {instruction}': '上次请求：{instruction}',
+      'The draft was revised at the user’s request': '草稿已按你的请求修改，请审核。',
       'Sending…': '发送中…',
       'Approve & send': '批准并发送',
       'Send now': '立即发送',
@@ -519,7 +533,12 @@ window.__ModuleLoader__.load({
                     key: `${detail.id}:${detail.updatedAt}`,
                     draft: detail,
                     busy,
+                    call,
                     t,
+                    onRevised: next => {
+                      setDetail(next)
+                      setNotice(t('Draft revised.'))
+                    },
                     onSave: payload => run(
                       () => call('draft/update', { id: detail.id, html: payload.html, text: payload.text, subject: payload.subject }),
                       () => t('Draft saved.'),
@@ -572,17 +591,66 @@ window.__ModuleLoader__.load({
       )
     }
 
-    function DraftView({ draft, busy, onSave, onApprove, onRetry, onReject, onDone, t }) {
+    function DraftView({ draft, busy, call, onSave, onApprove, onRetry, onReject, onDone, onRevised, t }) {
       const [html, setHtml] = useState(draft.html)
       const [subject, setSubject] = useState(draft.subject)
       const [confirm, setConfirm] = useState('')
+      const [instruction, setInstruction] = useState('')
+      const [revisionError, setRevisionError] = useState(draft.revision?.error ?? '')
+      const [revising, setRevising] = useState(draft.revision?.status === 'requested')
       const editorRef = useRef(null)
       const skipHydrateRef = useRef(false)
       const dirty = html !== draft.html || subject !== draft.subject
       const editable = draft.status !== 'sent' && draft.status !== 'rejected'
+      const editorEditable = editable && !revising
       const sourceFrom = (draft.sourceFrom ?? [])
         .map(entry => (entry.name ? `${entry.name} <${entry.address}>` : entry.address))
         .join(', ')
+
+      useEffect(() => {
+        if (!revising) return undefined
+        let cancelled = false
+        async function poll() {
+          try {
+            const next = await call('draft/get', { id: draft.id })
+            if (cancelled) return
+            if (next.revision?.status === 'ready') {
+              setRevising(false)
+              setInstruction('')
+              setRevisionError('')
+              if (onRevised !== undefined) onRevised(next)
+            } else if (next.revision?.status === 'error') {
+              setRevising(false)
+              setRevisionError(next.revision.error || t('Revision failed.'))
+            }
+          } catch (failure) {
+            if (!cancelled) {
+              setRevising(false)
+              setRevisionError(failure instanceof Error ? failure.message : String(failure))
+            }
+          }
+        }
+        void poll()
+        const timer = setInterval(() => { void poll() }, 1_500)
+        return () => {
+          cancelled = true
+          clearInterval(timer)
+        }
+      }, [revising, draft.id])
+
+      async function submitRevision(value) {
+        const text = String(value ?? instruction).trim()
+        if (!editable || revising || text === '') return
+        setRevisionError('')
+        try {
+          setRevising(true)
+          await call('draft/revise', { id: draft.id, instruction: text, html, subject })
+          setInstruction('')
+        } catch (failure) {
+          setRevising(false)
+          setRevisionError(failure instanceof Error ? failure.message : String(failure))
+        }
+      }
 
       useEffect(() => {
         const editor = editorRef.current
@@ -604,7 +672,7 @@ window.__ModuleLoader__.load({
       }
 
       function applyCommand(command, value) {
-        if (!editable) return
+        if (!editable || revising) return
         const editor = editorRef.current
         if (editor === null) return
         editor.focus()
@@ -723,7 +791,7 @@ window.__ModuleLoader__.load({
       }
 
       function clearFormatting() {
-        if (!editable) return
+        if (!editable || revising) return
         const editor = editorRef.current
         if (editor === null) return
         const offsets = selectionOffsets(editor)
@@ -749,7 +817,7 @@ window.__ModuleLoader__.load({
       }
 
       function addLink() {
-        if (!editable) return
+        if (!editable || revising) return
         const editor = editorRef.current
         if (editor === null) return
         const selection = window.getSelection()
@@ -777,7 +845,7 @@ window.__ModuleLoader__.load({
       }
 
       function pasteEditor(event) {
-        if (!editable) return
+        if (!editable || revising) return
         event.preventDefault()
         const clipboard = event.clipboardData
         if (clipboard === null) return
@@ -793,7 +861,7 @@ window.__ModuleLoader__.load({
         return h('button', {
           type: 'button',
           className: 'dsh-mail-tool',
-          disabled: !editable || busy,
+          disabled: !editorEditable || busy,
           title: t(title),
           'aria-label': t(title),
           onMouseDown: event => event.preventDefault(),
@@ -805,7 +873,7 @@ window.__ModuleLoader__.load({
         return h('button', {
           type: 'button',
           className: 'dsh-mail-tool',
-          disabled: !editable || busy,
+          disabled: !editorEditable || busy,
           title: t(title),
           'aria-label': t(title),
           onMouseDown: event => event.preventDefault(),
@@ -879,7 +947,7 @@ window.__ModuleLoader__.load({
             h('button', {
               type: 'button',
               className: 'dsh-mail-tool',
-              disabled: !editable || busy,
+              disabled: !editorEditable || busy,
               title: t('Link'),
               'aria-label': t('Link'),
               onMouseDown: event => event.preventDefault(),
@@ -888,7 +956,7 @@ window.__ModuleLoader__.load({
             h('button', {
               type: 'button',
               className: 'dsh-mail-tool',
-              disabled: !editable || busy,
+              disabled: !editorEditable || busy,
               title: t('Clear formatting'),
               'aria-label': t('Clear formatting'),
               onMouseDown: event => event.preventDefault(),
@@ -900,7 +968,7 @@ window.__ModuleLoader__.load({
           h('div', {
             className: 'dsh-mail-editor',
             ref: editorRef,
-            contentEditable: editable,
+            contentEditable: editorEditable,
             suppressContentEditableWarning: true,
             spellCheck: false,
             role: 'textbox',
@@ -917,34 +985,75 @@ window.__ModuleLoader__.load({
             h('textarea', {
               className: 'dsh-mail-textarea',
               value: html,
-              disabled: !editable,
+              disabled: !editorEditable,
               spellCheck: false,
               onChange: event => { setConfirm(''); setHtml(event.target.value) },
             }),
           ),
         ),
+        editable
+          ? h('div', { className: 'dsh-mail-revision' },
+            h('label', { className: 'dsh-mail-label' }, t('Ask the model for changes')),
+            h('div', { className: 'dsh-mail-revision-row' },
+              h('input', {
+                className: 'dsh-mail-input',
+                value: instruction,
+                disabled: busy || revising,
+                placeholder: t('Describe the change you want…'),
+                onChange: event => setInstruction(event.target.value),
+                onKeyDown: event => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault()
+                    void submitRevision()
+                  }
+                },
+              }),
+              h('button', {
+                type: 'button',
+                className: 'dsh-mail-button',
+                disabled: busy || revising || instruction.trim() === '',
+                onClick: () => { void submitRevision() },
+              }, revising ? t('Revising…') : t('Revise')),
+            ),
+            h('div', { className: 'dsh-mail-revision-quick' },
+              ['More specific', 'Add an example', 'Shorter', 'More formal', 'Warmer'].map(label =>
+                h('button', {
+                  key: label,
+                  type: 'button',
+                  className: 'dsh-mail-chip',
+                  disabled: busy || revising,
+                  onClick: () => { void submitRevision(t(label)) },
+                }, t(label))),
+            ),
+            revising ? h('p', { className: 'dsh-mail-editor-help' }, t('The model is revising this draft…')) : null,
+            revisionError !== '' ? h('p', { className: 'dsh-mail-revision-error' }, revisionError) : null,
+            !revising && draft.revision?.instruction
+              ? h('p', { className: 'dsh-mail-editor-help' }, fill(t('Last request: {instruction}'), { instruction: draft.revision.instruction }))
+              : null,
+          )
+          : null,
         h('div', { className: 'dsh-mail-actions' },
           draft.status === 'pending_review'
             ? h('button', {
-              type: 'button', className: 'dsh-mail-button is-primary', disabled: busy,
+              type: 'button', className: 'dsh-mail-button is-primary', disabled: busy || revising,
               onClick: () => { void sendCurrent(onApprove) },
             }, busy ? t('Sending…') : t('Approve & send'))
             : null,
           (draft.status === 'approved' || draft.status === 'failed')
             ? h('button', {
-              type: 'button', className: 'dsh-mail-button is-primary', disabled: busy,
+              type: 'button', className: 'dsh-mail-button is-primary', disabled: busy || revising,
               onClick: () => { void sendCurrent(onRetry) },
             }, busy ? t('Sending…') : t('Send now'))
             : null,
           editable
             ? h('button', {
-              type: 'button', className: 'dsh-mail-button', disabled: busy || !dirty,
+              type: 'button', className: 'dsh-mail-button', disabled: busy || revising || !dirty,
               onClick: () => { setConfirm(''); void onSave({ html, subject }) },
             }, t('Save changes'))
             : null,
           editable
             ? h('button', {
-              type: 'button', className: 'dsh-mail-button is-danger', disabled: busy,
+              type: 'button', className: 'dsh-mail-button is-danger', disabled: busy || revising,
               onClick: () => {
                 if (confirm === 'reject') {
                   setConfirm('')
@@ -1514,6 +1623,14 @@ window.__ModuleLoader__.load({
 .dsh-mail-editor table{border-collapse:collapse;max-width:100%}
 .dsh-mail-editor td,.dsh-mail-editor th{border:1px solid #d0d5dd;padding:4px 6px}
 .dsh-mail-editor-help{margin:6px 0 0;font-size:11px;color:var(--dsw-alias-label-secondary)}
+.dsh-mail-revision{margin-top:14px;padding:12px;border:1px solid var(--dsw-alias-border-l1);border-radius:10px;background:var(--dsw-alias-bg-layer-1)}
+.dsh-mail-revision-row{display:flex;gap:8px;margin-top:6px}
+.dsh-mail-revision-row .dsh-mail-input{flex:1;min-width:0}
+.dsh-mail-revision-quick{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.dsh-mail-chip{appearance:none;height:26px;padding:0 9px;border:1px solid var(--dsw-alias-border-l1);border-radius:999px;background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);font:inherit;font-size:11px;cursor:pointer}
+.dsh-mail-chip:hover:not(:disabled){border-color:var(--dsw-alias-border-l2);color:var(--dsw-alias-label-primary)}
+.dsh-mail-chip:disabled{opacity:.5;cursor:default}
+.dsh-mail-revision-error{margin:8px 0 0;color:var(--dsw-alias-state-error-primary);font-size:12px}
 .dsh-mail-advanced{margin-top:8px}
 .dsh-mail-advanced summary{cursor:pointer;font-size:12px;color:var(--dsw-alias-label-secondary)}
 .dsh-mail-advanced summary:hover{color:var(--dsw-alias-label-primary)}

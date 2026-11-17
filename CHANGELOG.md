@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.4.0] - 2026-11-17
+
+### Added
+
+- **Conversational draft revisions** in the review panel: describe a change, and the model revises the current draft.
+- Quick revision actions: more specific, add an example, shorter, more formal, warmer.
+- `mail_draft_get` and `mail_draft_update` tools for model-driven revisions.
+- Revision requests are queued to the session that owns the draft and never send the draft.
+- Revision status, last request, and errors are visible in the panel.
+
+### Changed
+
+- Unsaved visual/source edits are included in the revision request, so the model rewrites the current content rather than a stale saved draft.
+
 ## [1.3.0] - 2026-11-17
 
 ### Added

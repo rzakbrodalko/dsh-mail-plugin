@@ -2,13 +2,14 @@
 
 English | [中文](DETAIL.zh.md)
 
-Read a mailbox over IMAP and send reviewed, multipart HTML replies from a DeepSeek Harness session. The plugin adds a **Mail** entry to the left sidebar and seven tools the model can call.
+Read a mailbox over IMAP and send reviewed, multipart HTML replies from a DeepSeek Harness session. The plugin adds a **Mail** entry to the left sidebar and nine tools the model can call.
 
 ## What it does
 
 - **Read mail** — `mail_list` lists recent messages from a folder with sender, subject, date, unread state, a short preview, and UIDs. `mail_read` returns the decoded plain-text body, headers, attachment metadata or saved attachment paths, and optionally the HTML body. Set `saveAttachments` to save decoded files under `$DSH_HOME/mail-plugin/attachments` with safe names and size limits. Messages stay untouched unless `markSeen` is set.
 - **Draft replies** — `mail_reply` fetches the source message, addresses the reply to its sender (or `Reply-To`), sets `In-Reply-To`/`References` for threading, and stores an HTML body plus a generated plain-text alternative. The draft is multipart/alternative when sent.
 - **Review before sending** — a draft to an untrusted recipient waits in the **Mail → Review** panel. The user can compare it with the original message, edit in the visual editor or subject, and choose **Approve & send**, **Save changes**, or **Reject**. The HTML source is available under **Advanced: HTML source** when exact markup matters. Only user approval releases it. The sidebar icon shows a warning dot while a draft awaits review.
+- **Conversational revisions** — below the editor, the user can ask the model for changes such as “be more specific” or “add an example.” The plugin sends the request to the owning chat session; the model reads the current draft with `mail_draft_get`, replaces it with `mail_draft_update`, and cannot send it.
 - **Approved drafts** — a draft whose policy needs no review appears as **Ready** under Review, so the user can still send it if the model did not.
 - **Background watcher** — when enabled, the plugin polls the inbox every 30–300 seconds while DSH is running. New unseen messages wake the session that last used a Mail tool; the model reads them, drafts replies, and sends only when the review policy allows it. Other drafts wait in **Review**. Messages from the mailbox itself and messages marked `Auto-Submitted` are ignored to prevent reply loops.
 - **Trusted recipients** — in **Mail → Settings → Review policy**, choose:

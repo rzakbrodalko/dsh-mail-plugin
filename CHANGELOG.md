@@ -13,6 +13,7 @@ All notable changes to this project are documented here. The format follows [Kee
 - Browser spellcheck underlines are disabled in the visual editor to avoid marking non-English replies.
 - H2, H3, and Quote act as toggles back to a normal paragraph; Clear formatting resets inline styles, links, lists, and block formatting.
 - Quote wraps a paragraph or an entire list once and removes nested quote wrappers in one click.
+- Quoting and Clear formatting preserve the caret position.
 
 ## [1.2.0] - 2026-11-14
 

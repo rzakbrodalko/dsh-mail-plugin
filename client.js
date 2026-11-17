@@ -632,11 +632,26 @@ window.__ModuleLoader__.load({
         element.remove()
       }
 
+      function saveSelection() {
+        const selection = window.getSelection()
+        if (selection === null || selection.rangeCount === 0) return null
+        return selection.getRangeAt(0).cloneRange()
+      }
+
+      function restoreSelection(range) {
+        if (range === null) return
+        const selection = window.getSelection()
+        if (selection === null) return
+        selection.removeAllRanges()
+        selection.addRange(range)
+      }
+
       function toggleQuote() {
         if (!editable) return
         const editor = editorRef.current
         if (editor === null) return
         editor.focus()
+        const savedRange = saveSelection()
         const node = selectedElement()
         if (node === null || !editor.contains(node)) return
         const quote = node.closest('blockquote')
@@ -646,6 +661,8 @@ window.__ModuleLoader__.load({
             unwrapElement(current)
             current = node.closest('blockquote')
           }
+          editor.focus()
+          restoreSelection(savedRange)
           syncEditor()
           return
         }
@@ -656,6 +673,8 @@ window.__ModuleLoader__.load({
         const wrapper = document.createElement('blockquote')
         target.parentNode.insertBefore(wrapper, target)
         wrapper.appendChild(target)
+        editor.focus()
+        restoreSelection(savedRange)
         syncEditor()
       }
 
@@ -669,6 +688,7 @@ window.__ModuleLoader__.load({
         const editor = editorRef.current
         if (editor === null) return
         editor.focus()
+        const savedRange = saveSelection()
         try {
           const node = selectedElement()
           let quote = node?.closest('blockquote')
@@ -676,6 +696,8 @@ window.__ModuleLoader__.load({
             unwrapElement(quote)
             quote = node.closest('blockquote')
           }
+          editor.focus()
+          restoreSelection(savedRange)
           document.execCommand('removeFormat')
           document.execCommand('unlink')
           document.execCommand('formatBlock', false, '<p>')

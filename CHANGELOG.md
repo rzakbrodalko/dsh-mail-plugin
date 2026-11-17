@@ -11,6 +11,7 @@ All notable changes to this project are documented here. The format follows [Kee
 - `mail_draft_get` and `mail_draft_update` tools for model-driven revisions.
 - Revision requests are queued to the session that owns the draft and never send the draft.
 - Revision status, last request, and errors are visible in the panel.
+- Revision requests use step steering so a busy session handles them instead of leaving them queued for a later turn; stale requests time out after two minutes and can be retried.
 
 ### Changed
 

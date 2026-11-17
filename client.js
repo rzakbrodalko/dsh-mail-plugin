@@ -73,6 +73,7 @@ window.__ModuleLoader__.load({
       'The model is revising this draft…': '模型正在修改这封草稿…',
       'Draft revised.': '草稿已修改。',
       'Revision failed.': '修改失败。',
+      'The model did not finish the revision. Check the chat session and try again.': '模型未完成修改。请检查聊天会话后重试。',
       'More specific': '更具体',
       'Add an example': '添加示例',
       'Shorter': '更简短',
@@ -596,8 +597,16 @@ window.__ModuleLoader__.load({
       const [subject, setSubject] = useState(draft.subject)
       const [confirm, setConfirm] = useState('')
       const [instruction, setInstruction] = useState('')
-      const [revisionError, setRevisionError] = useState(draft.revision?.error ?? '')
-      const [revising, setRevising] = useState(draft.revision?.status === 'requested')
+      const revisionAge = Date.now() - Date.parse(draft.revision?.requestedAt ?? '')
+      const staleRequest = draft.revision?.status === 'requested'
+        && Number.isFinite(revisionAge)
+        && revisionAge > 90_000
+      const [revisionError, setRevisionError] = useState(
+        staleRequest
+          ? t('The model did not finish the revision. Check the chat session and try again.')
+          : draft.revision?.error ?? '',
+      )
+      const [revising, setRevising] = useState(draft.revision?.status === 'requested' && !staleRequest)
       const editorRef = useRef(null)
       const skipHydrateRef = useRef(false)
       const dirty = html !== draft.html || subject !== draft.subject
@@ -632,9 +641,16 @@ window.__ModuleLoader__.load({
         }
         void poll()
         const timer = setInterval(() => { void poll() }, 1_500)
+        const timeout = setTimeout(() => {
+          if (!cancelled) {
+            setRevising(false)
+            setRevisionError(t('The model did not finish the revision. Check the chat session and try again.'))
+          }
+        }, 120_000)
         return () => {
           cancelled = true
           clearInterval(timer)
+          clearTimeout(timeout)
         }
       }, [revising, draft.id])
 

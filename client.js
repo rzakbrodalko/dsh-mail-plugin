@@ -577,6 +577,7 @@ window.__ModuleLoader__.load({
       const [subject, setSubject] = useState(draft.subject)
       const [confirm, setConfirm] = useState('')
       const editorRef = useRef(null)
+      const skipHydrateRef = useRef(false)
       const dirty = html !== draft.html || subject !== draft.subject
       const editable = draft.status !== 'sent' && draft.status !== 'rejected'
       const sourceFrom = (draft.sourceFrom ?? [])
@@ -586,13 +587,20 @@ window.__ModuleLoader__.load({
       useEffect(() => {
         const editor = editorRef.current
         if (editor === null) return
+        if (skipHydrateRef.current) {
+          skipHydrateRef.current = false
+          return
+        }
         if (document.activeElement !== editor && editor.innerHTML !== html) {
           editor.innerHTML = sanitizeEditorHtml(html)
         }
       }, [html, editable])
 
       function syncEditor() {
-        if (editorRef.current !== null) setHtml(editorRef.current.innerHTML)
+        if (editorRef.current !== null) {
+          skipHydrateRef.current = true
+          setHtml(editorRef.current.innerHTML)
+        }
       }
 
       function applyCommand(command, value) {
@@ -642,16 +650,47 @@ window.__ModuleLoader__.load({
         if (range === null) return
         const selection = window.getSelection()
         if (selection === null) return
-        selection.removeAllRanges()
-        selection.addRange(range)
+        try {
+          selection.removeAllRanges()
+          selection.addRange(range)
+        } catch {
+          // A detached range is ignored; the editor keeps its current caret.
+        }
+      }
+
+      function restoreAfterRender(editor, range) {
+        const apply = () => {
+          if (!editor.isConnected) return
+          editor.focus()
+          if (range !== null && editor.contains(range.commonAncestorContainer)) {
+            restoreSelection(range)
+          }
+        }
+        apply()
+        requestAnimationFrame(apply)
+      }
+
+      function placeCaretAtEnd(element) {
+        const range = document.createRange()
+        range.selectNodeContents(element)
+        range.collapse(false)
+        restoreSelection(range)
+      }
+
+      function selectionInside(element) {
+        const selection = window.getSelection()
+        return selection !== null
+          && selection.rangeCount > 0
+          && selection.anchorNode !== null
+          && element.contains(selection.anchorNode)
       }
 
       function toggleQuote() {
         if (!editable) return
         const editor = editorRef.current
         if (editor === null) return
-        editor.focus()
         const savedRange = saveSelection()
+        editor.focus()
         const node = selectedElement()
         if (node === null || !editor.contains(node)) return
         const quote = node.closest('blockquote')
@@ -662,8 +701,15 @@ window.__ModuleLoader__.load({
             current = node.closest('blockquote')
           }
           editor.focus()
-          restoreSelection(savedRange)
           syncEditor()
+          restoreAfterRender(editor, savedRange)
+          const anchor = node.closest('p,h1,h2,h3,h4,li,ul,ol') ?? editor
+          requestAnimationFrame(() => {
+            if (!selectionInside(anchor)) {
+              editor.focus()
+              placeCaretAtEnd(anchor)
+            }
+          })
           return
         }
         const block = node.closest('p,h1,h2,h3,h4,li,ul,ol')
@@ -674,8 +720,14 @@ window.__ModuleLoader__.load({
         target.parentNode.insertBefore(wrapper, target)
         wrapper.appendChild(target)
         editor.focus()
-        restoreSelection(savedRange)
         syncEditor()
+        restoreAfterRender(editor, savedRange)
+        requestAnimationFrame(() => {
+          if (!selectionInside(wrapper)) {
+            editor.focus()
+            placeCaretAtEnd(wrapper)
+          }
+        })
       }
 
       function toggleBlock(tag) {
@@ -687,8 +739,8 @@ window.__ModuleLoader__.load({
         if (!editable) return
         const editor = editorRef.current
         if (editor === null) return
-        editor.focus()
         const savedRange = saveSelection()
+        editor.focus()
         try {
           const node = selectedElement()
           let quote = node?.closest('blockquote')

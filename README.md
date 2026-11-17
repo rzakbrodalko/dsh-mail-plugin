@@ -97,7 +97,7 @@ A reply is delivered only by `mail_send`. If `mail_reply` reports `reviewRequire
 
 ### Review editor
 
-The review panel opens on a **visual editor** with basic email formatting: bold, italic, underline, headings, bulleted and numbered lists, quotes, links, clear formatting, undo, and redo. The rendered email preview stays beside it.
+The review panel opens on a **visual editor** with basic email formatting: bold, italic, underline, headings, bulleted and numbered lists, quotes, links, clear formatting, undo, and redo. Use the **Edit / Preview** toggle to switch to a sandboxed rendering of the email; Edit is the default, so the message is not shown twice.
 
 - Pasted content is sanitized: scripts, iframes, event handlers, and unsafe URLs are removed.
 - **Advanced: HTML source** is collapsed by default for precise markup, tables, or images.

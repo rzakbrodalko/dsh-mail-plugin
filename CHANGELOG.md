@@ -9,7 +9,8 @@ All notable changes to this project are documented here. The format follows [Kee
 - A **visual editor** in the review panel with bold, italic, underline, headings, lists, quotes, links, clear formatting, undo, and redo.
 - Paste sanitizing that strips scripts, event handlers, unsafe URLs, and unsupported markup.
 - The HTML source editor is now optional and collapsed under **Advanced: HTML source**.
-- The rendered preview remains side by side with the visual editor for email-safe review.
+- A single **Edit / Preview** toggle replaces the duplicated side-by-side preview; Edit is the default.
+- Browser spellcheck underlines are disabled in the visual editor to avoid marking non-English replies.
 
 ## [1.2.0] - 2026-11-14
 

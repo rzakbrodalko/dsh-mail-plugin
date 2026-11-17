@@ -35,8 +35,6 @@ window.__ModuleLoader__.load({
       'Connect a mailbox': '连接邮箱',
       'Add the mailbox address, IMAP and SMTP servers, and password. The password is kept in the DSH credential store, never in the plugin configuration.': '填写邮箱地址、IMAP 和 SMTP 服务器以及密码。密码保存在 DSH 凭据存储中，不会写入插件配置。',
       'Open settings': '打开设置',
-      'Nothing to preview yet.': '暂无可预览内容。',
-      'Reply preview': '回复预览',
       'To: {to}': '收件人：{to}',
       'Cc: {cc}': '抄送：{cc}',
       'In reply to: {subject}': '回复：{subject}',
@@ -49,8 +47,25 @@ window.__ModuleLoader__.load({
       'Approved': '已批准',
       'Original: {text}': '原文：{text}',
       'Subject': '主题',
-      'Rendered HTML': 'HTML 预览',
       'HTML source': 'HTML 源码',
+      'Visual editor': '可视化编辑器',
+      'Basic formatting': '基础格式',
+      'Bold': '粗体',
+      'Italic': '斜体',
+      'Underline': '下划线',
+      'Heading 2': '标题 2',
+      'Heading 3': '标题 3',
+      'Bulleted list': '项目符号列表',
+      'Numbered list': '编号列表',
+      'Quote': '引用',
+      'Link': '链接',
+      'Clear formatting': '清除格式',
+      'Undo': '撤销',
+      'Redo': '重做',
+      'Link URL': '链接地址',
+      'Advanced: HTML source': '高级：HTML 源码',
+      'Write the reply…': '撰写回复…',
+      'Visual editing is simplified; use Advanced HTML for tables or images.': '可视化编辑会简化格式；表格或图片请使用高级 HTML。',
       'Sending…': '发送中…',
       'Approve & send': '批准并发送',
       'Send now': '立即发送',
@@ -160,6 +175,63 @@ window.__ModuleLoader__.load({
       return reason
     }
 
+    const PASTE_TAGS = new Set([
+      'a', 'b', 'blockquote', 'br', 'caption', 'div', 'em', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+      'hr', 'i', 'img', 'li', 'ol', 'p', 's', 'span', 'strong', 'table', 'tbody', 'td', 'tfoot',
+      'th', 'thead', 'tr', 'u', 'ul',
+    ])
+    const PASTE_ATTRS = new Set([
+      'href', 'src', 'alt', 'title', 'width', 'height', 'colspan', 'rowspan', 'style', 'align', 'valign',
+    ])
+
+    /** Strip markup and attributes that should never enter the visual editor. */
+    function sanitizeEditorHtml(input) {
+      const doc = new DOMParser().parseFromString(String(input ?? ''), 'text/html')
+      const unsafe = new Set(['script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'button', 'link', 'meta', 'base', 'title'])
+      function walk(node) {
+        if (node.nodeType === Node.TEXT_NODE) return
+        if (node.nodeType !== Node.ELEMENT_NODE) {
+          node.remove()
+          return
+        }
+        const tag = node.tagName.toLowerCase()
+        if (unsafe.has(tag)) {
+          node.remove()
+          return
+        }
+        for (const child of [...node.childNodes]) walk(child)
+        if (!PASTE_TAGS.has(tag)) {
+          const parent = node.parentNode
+          while (node.firstChild) parent.insertBefore(node.firstChild, node)
+          node.remove()
+          return
+        }
+        for (const attribute of [...node.attributes]) {
+          const name = attribute.name.toLowerCase()
+          if (!PASTE_ATTRS.has(name) || name.startsWith('on')) {
+            node.removeAttribute(attribute.name)
+            continue
+          }
+          const value = attribute.value.trim()
+          if (name === 'href' && !/^(https?:|mailto:|#)/i.test(value)) node.removeAttribute(attribute.name)
+          if (name === 'src' && !/^data:image\//i.test(value)) node.removeAttribute(attribute.name)
+          if (name === 'style' && /(expression|behavior\s*:|url\s*\(\s*['"]?\s*javascript:)/i.test(value)) {
+            node.removeAttribute(attribute.name)
+          }
+        }
+      }
+      for (const child of [...doc.body.childNodes]) walk(child)
+      return doc.body.innerHTML
+    }
+
+    function plainTextToHtml(text) {
+      return String(text ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\r?\n/g, '<br>')
+    }
+
     function formatDate(value) {
       if (!value) return ''
       const date = new Date(value)
@@ -230,6 +302,8 @@ window.__ModuleLoader__.load({
       const [tab, setTab] = useState('review')
       const [selectedId, setSelectedId] = useState(null)
       const [detail, setDetail] = useState(null)
+      const [detailError, setDetailError] = useState('')
+      const [detailNonce, setDetailNonce] = useState(0)
       const [busy, setBusy] = useState(false)
       const [error, setError] = useState('')
       const [notice, setNotice] = useState('')
@@ -283,21 +357,23 @@ window.__ModuleLoader__.load({
       useEffect(() => {
         if (selectedId === null) {
           setDetail(null)
+          setDetailError('')
           return undefined
         }
         setDetail(null)
+        setDetailError('')
         let cancelled = false
         call('draft/get', { id: selectedId })
           .then(next => {
             if (!cancelled) setDetail(next)
           })
           .catch(failure => {
-            if (!cancelled) setError(failure instanceof Error ? failure.message : String(failure))
+            if (!cancelled) setDetailError(failure instanceof Error ? failure.message : String(failure))
           })
         return () => {
           cancelled = true
         }
-      }, [selectedId])
+      }, [selectedId, detailNonce])
 
       async function run(operation, success) {
         setBusy(true)
@@ -386,6 +462,10 @@ window.__ModuleLoader__.load({
                 type: 'button',
                 className: draft.id === selectedId ? 'dsh-mail-item is-active' : 'dsh-mail-item',
                 onClick: () => {
+                  if (draft.id === selectedId) {
+                    if (detail === null) setDetailNonce(value => value + 1)
+                    return
+                  }
                   setDetail(null)
                   setSelectedId(draft.id)
                 },
@@ -425,7 +505,16 @@ window.__ModuleLoader__.load({
               : !configured
                 ? h(EmptyState, { onOpenSettings: () => setTab('settings'), t })
                 : detail === null
-                  ? h('p', { className: 'dsh-mail-empty' }, selectedId === null ? t('Select a draft to review it.') : t('Loading draft…'))
+                  ? detailError !== ''
+                    ? h('div', { className: 'dsh-mail-detail-error' },
+                      h('p', { className: 'dsh-mail-empty' }, detailError),
+                      h('button', {
+                        type: 'button',
+                        className: 'dsh-mail-button',
+                        onClick: () => setDetailNonce(value => value + 1),
+                      }, t('Retry')),
+                    )
+                    : h('p', { className: 'dsh-mail-empty' }, selectedId === null ? t('Select a draft to review it.') : t('Loading draft…'))
                   : h(DraftView, {
                     key: `${detail.id}:${detail.updatedAt}`,
                     draft: detail,
@@ -487,11 +576,243 @@ window.__ModuleLoader__.load({
       const [html, setHtml] = useState(draft.html)
       const [subject, setSubject] = useState(draft.subject)
       const [confirm, setConfirm] = useState('')
+      const editorRef = useRef(null)
+      const skipHydrateRef = useRef(false)
       const dirty = html !== draft.html || subject !== draft.subject
       const editable = draft.status !== 'sent' && draft.status !== 'rejected'
       const sourceFrom = (draft.sourceFrom ?? [])
         .map(entry => (entry.name ? `${entry.name} <${entry.address}>` : entry.address))
         .join(', ')
+
+      useEffect(() => {
+        const editor = editorRef.current
+        if (editor === null) return
+        if (skipHydrateRef.current) {
+          skipHydrateRef.current = false
+          return
+        }
+        if (document.activeElement !== editor && editor.innerHTML !== html) {
+          editor.innerHTML = sanitizeEditorHtml(html)
+        }
+      }, [html, editable])
+
+      function syncEditor() {
+        if (editorRef.current !== null) {
+          skipHydrateRef.current = true
+          setHtml(editorRef.current.innerHTML)
+        }
+      }
+
+      function applyCommand(command, value) {
+        if (!editable) return
+        const editor = editorRef.current
+        if (editor === null) return
+        editor.focus()
+        try {
+          document.execCommand(command, false, value)
+        } catch {
+          // Some embedded browsers disable execCommand; typing still works.
+        }
+        syncEditor()
+      }
+
+      function currentBlockTag() {
+        const selection = window.getSelection()
+        if (selection === null || selection.rangeCount === 0) return 'p'
+        let node = selection.anchorNode
+        if (node !== null && node.nodeType === 3) node = node.parentElement
+        const block = node?.closest?.('h1,h2,h3,h4,blockquote,p,li')
+        return block?.tagName.toLowerCase() ?? 'p'
+      }
+
+      function selectedElement() {
+        const selection = window.getSelection()
+        if (selection === null || selection.rangeCount === 0) return null
+        let node = selection.anchorNode
+        if (node !== null && node.nodeType === 3) node = node.parentElement
+        return node instanceof Element ? node : null
+      }
+
+      function unwrapElement(element) {
+        const parent = element.parentNode
+        if (parent === null) return
+        while (element.firstChild) parent.insertBefore(element.firstChild, element)
+        element.remove()
+      }
+
+      function selectionOffsets(editor) {
+        const selection = window.getSelection()
+        if (selection === null || selection.rangeCount === 0) return null
+        const range = selection.getRangeAt(0)
+        if (!editor.contains(range.startContainer) || !editor.contains(range.endContainer)) return null
+        const before = range.cloneRange()
+        before.selectNodeContents(editor)
+        before.setEnd(range.startContainer, range.startOffset)
+        const start = before.toString().length
+        return { start, end: start + range.toString().length }
+      }
+
+      function pointAtTextOffset(editor, target) {
+        let remaining = Math.max(0, target)
+        const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT)
+        let node = walker.nextNode()
+        let last = null
+        while (node !== null) {
+          last = node
+          const length = node.nodeValue?.length ?? 0
+          if (remaining <= length) return { node, offset: remaining }
+          remaining -= length
+          node = walker.nextNode()
+        }
+        if (last !== null) return { node: last, offset: last.nodeValue?.length ?? 0 }
+        return { node: editor, offset: editor.childNodes.length }
+      }
+
+      function restoreOffsets(editor, offsets) {
+        if (offsets === null) return
+        editor.focus()
+        const start = pointAtTextOffset(editor, offsets.start)
+        const end = pointAtTextOffset(editor, offsets.end)
+        const range = document.createRange()
+        range.setStart(start.node, start.offset)
+        range.setEnd(end.node, end.offset)
+        const selection = window.getSelection()
+        if (selection === null) return
+        selection.removeAllRanges()
+        selection.addRange(range)
+      }
+
+      function restoreAfterRender(editor, offsets) {
+        restoreOffsets(editor, offsets)
+        requestAnimationFrame(() => restoreOffsets(editor, offsets))
+      }
+
+      function toggleQuote() {
+        if (!editable) return
+        const editor = editorRef.current
+        if (editor === null) return
+        const offsets = selectionOffsets(editor)
+        editor.focus()
+        const node = selectedElement()
+        if (node === null || !editor.contains(node)) return
+        const quote = node.closest('blockquote')
+        if (quote !== null && editor.contains(quote)) {
+          let current = quote
+          while (current !== null && editor.contains(current)) {
+            unwrapElement(current)
+            current = node.closest('blockquote')
+          }
+          syncEditor()
+          restoreAfterRender(editor, offsets)
+          return
+        }
+        const block = node.closest('p,h1,h2,h3,h4,li,ul,ol')
+        if (block === null || !editor.contains(block)) return
+        const target = block.tagName === 'LI' ? block.closest('ul,ol') : block
+        if (target === null || target.parentNode === null) return
+        const wrapper = document.createElement('blockquote')
+        target.parentNode.insertBefore(wrapper, target)
+        wrapper.appendChild(target)
+        syncEditor()
+        restoreAfterRender(editor, offsets)
+      }
+
+      function toggleBlock(tag) {
+        const target = currentBlockTag() === tag ? 'p' : tag
+        applyCommand('formatBlock', `<${target}>`)
+      }
+
+      function clearFormatting() {
+        if (!editable) return
+        const editor = editorRef.current
+        if (editor === null) return
+        const offsets = selectionOffsets(editor)
+        editor.focus()
+        try {
+          const node = selectedElement()
+          let quote = node?.closest('blockquote')
+          while (quote !== null && quote !== undefined && editor.contains(quote)) {
+            unwrapElement(quote)
+            quote = node.closest('blockquote')
+          }
+          restoreOffsets(editor, offsets)
+          document.execCommand('removeFormat')
+          document.execCommand('unlink')
+          document.execCommand('formatBlock', false, '<p>')
+          if (document.queryCommandState('insertUnorderedList')) document.execCommand('insertUnorderedList')
+          if (document.queryCommandState('insertOrderedList')) document.execCommand('insertOrderedList')
+        } catch {
+          // Keep typing available if the embedded browser rejects a command.
+        }
+        syncEditor()
+        requestAnimationFrame(() => restoreOffsets(editor, offsets))
+      }
+
+      function addLink() {
+        if (!editable) return
+        const editor = editorRef.current
+        if (editor === null) return
+        const selection = window.getSelection()
+        const savedRange = selection !== null && selection.rangeCount > 0
+          ? selection.getRangeAt(0).cloneRange()
+          : null
+        const url = window.prompt(t('Link URL'), 'https://')
+        if (url === null || !/^(https?:|mailto:)/i.test(url.trim())) return
+        editor.focus()
+        if (savedRange !== null) {
+          selection.removeAllRanges()
+          selection.addRange(savedRange)
+        }
+        if (savedRange === null || savedRange.collapsed) {
+          const safeUrl = url.trim()
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+          document.execCommand('insertHTML', false, `<a href="${safeUrl}">${safeUrl}</a>`)
+        } else {
+          document.execCommand('createLink', false, url.trim())
+        }
+        syncEditor()
+      }
+
+      function pasteEditor(event) {
+        if (!editable) return
+        event.preventDefault()
+        const clipboard = event.clipboardData
+        if (clipboard === null) return
+        const rich = clipboard.getData('text/html')
+        const plain = clipboard.getData('text/plain')
+        const safe = rich.trim() === '' ? plainTextToHtml(plain) : sanitizeEditorHtml(rich)
+        editorRef.current?.focus()
+        document.execCommand('insertHTML', false, safe)
+        syncEditor()
+      }
+
+      function tool(label, command, title, value) {
+        return h('button', {
+          type: 'button',
+          className: 'dsh-mail-tool',
+          disabled: !editable || busy,
+          title: t(title),
+          'aria-label': t(title),
+          onMouseDown: event => event.preventDefault(),
+          onClick: () => applyCommand(command, value),
+        }, label)
+      }
+
+      function blockTool(label, tag, title) {
+        return h('button', {
+          type: 'button',
+          className: 'dsh-mail-tool',
+          disabled: !editable || busy,
+          title: t(title),
+          'aria-label': t(title),
+          onMouseDown: event => event.preventDefault(),
+          onClick: () => toggleBlock(tag),
+        }, label)
+      }
+
       async function sendCurrent(action) {
         if (dirty) {
           const saved = await onSave({ html, subject })
@@ -499,14 +820,6 @@ window.__ModuleLoader__.load({
         }
         await action()
       }
-      const preview = html.trim() === ''
-        ? h('p', { className: 'dsh-mail-empty' }, t('Nothing to preview yet.'))
-        : h('iframe', {
-          className: 'dsh-mail-preview',
-          sandbox: '',
-          srcDoc: `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; font-src data:"><style>body{font:14px/1.55 -apple-system,Segoe UI,sans-serif;color:#1f2328;background:#fff;margin:16px}img{max-width:100%}</style></head><body>${html}</body></html>`,
-          title: t('Reply preview'),
-        })
       return h(React.Fragment, null,
         h('div', { className: 'dsh-mail-detail-head' },
           h('div', null,
@@ -541,13 +854,66 @@ window.__ModuleLoader__.load({
             onChange: event => { setConfirm(''); setSubject(event.target.value) },
           }),
         ),
-        h('div', { className: 'dsh-mail-panes' },
-          h('div', { className: 'dsh-mail-pane' },
-            h('div', { className: 'dsh-mail-pane-title' }, t('Rendered HTML')),
-            preview,
+        h('div', { className: 'dsh-mail-pane dsh-mail-review' },
+          h('div', { className: 'dsh-mail-pane-head' },
+            h('div', { className: 'dsh-mail-pane-title' }, t('Visual editor')),
+            h('span', { className: 'dsh-mail-editor-hint' }, t('Basic formatting')),
           ),
-          h('div', { className: 'dsh-mail-pane' },
-            h('div', { className: 'dsh-mail-pane-title' }, t('HTML source')),
+          h('div', { className: 'dsh-mail-toolbar' },
+            tool('B', 'bold', 'Bold'),
+            tool('I', 'italic', 'Italic'),
+            tool('U', 'underline', 'Underline'),
+            blockTool('H2', 'h2', 'Heading 2'),
+            blockTool('H3', 'h3', 'Heading 3'),
+            tool('•', 'insertUnorderedList', 'Bulleted list'),
+            tool('1.', 'insertOrderedList', 'Numbered list'),
+            h('button', {
+              type: 'button',
+              className: 'dsh-mail-tool',
+              disabled: !editable || busy,
+              title: t('Quote'),
+              'aria-label': t('Quote'),
+              onMouseDown: event => event.preventDefault(),
+              onClick: toggleQuote,
+            }, '❝'),
+            h('button', {
+              type: 'button',
+              className: 'dsh-mail-tool',
+              disabled: !editable || busy,
+              title: t('Link'),
+              'aria-label': t('Link'),
+              onMouseDown: event => event.preventDefault(),
+              onClick: addLink,
+            }, '🔗'),
+            h('button', {
+              type: 'button',
+              className: 'dsh-mail-tool',
+              disabled: !editable || busy,
+              title: t('Clear formatting'),
+              'aria-label': t('Clear formatting'),
+              onMouseDown: event => event.preventDefault(),
+              onClick: clearFormatting,
+            }, '⌫'),
+            tool('↶', 'undo', 'Undo'),
+            tool('↷', 'redo', 'Redo'),
+          ),
+          h('div', {
+            className: 'dsh-mail-editor',
+            ref: editorRef,
+            contentEditable: editable,
+            suppressContentEditableWarning: true,
+            spellCheck: false,
+            role: 'textbox',
+            'aria-multiline': 'true',
+            'aria-label': t('Visual editor'),
+            'data-placeholder': t('Write the reply…'),
+            onInput: event => { setConfirm(''); setHtml(event.currentTarget.innerHTML) },
+            onPaste: pasteEditor,
+          }),
+          h('p', { className: 'dsh-mail-editor-help' },
+            t('Visual editing is simplified; use Advanced HTML for tables or images.')),
+          h('details', { className: 'dsh-mail-advanced' },
+            h('summary', null, t('Advanced: HTML source')),
             h('textarea', {
               className: 'dsh-mail-textarea',
               value: html,
@@ -1124,11 +1490,34 @@ window.__ModuleLoader__.load({
 .dsh-mail-contact-head h2{margin:0;font-size:16px;font-weight:500}
 .dsh-mail-contact-form{display:flex;flex-direction:column;gap:12px;max-width:760px}
 @media (max-width:900px){.dsh-mail-contacts{flex-direction:column}.dsh-mail-contact-list{width:100%}}
-.dsh-mail-panes{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px;min-width:0}
-@media (max-width:1000px){.dsh-mail-panes{grid-template-columns:1fr}}
+.dsh-mail-review{margin-top:14px;min-width:0}
+.dsh-mail-review .dsh-mail-editor{min-height:420px}
 .dsh-mail-pane{display:flex;flex-direction:column;min-width:0;gap:6px}
 .dsh-mail-pane-title{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--dsw-alias-label-secondary)}
-.dsh-mail-preview{width:100%;height:300px;border:1px solid var(--dsw-alias-border-l1);border-radius:10px;background:#fff}
+.dsh-mail-pane-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.dsh-mail-editor-hint{font-size:11px;color:var(--dsw-alias-label-secondary)}
+.dsh-mail-toolbar{display:flex;flex-wrap:wrap;gap:3px;padding:6px;border:1px solid var(--dsw-alias-border-l1);border-bottom:0;border-radius:10px 10px 0 0;background:var(--dsw-alias-bg-layer-1)}
+.dsh-mail-tool{appearance:none;min-width:28px;height:26px;padding:0 6px;border:1px solid transparent;border-radius:6px;background:transparent;color:var(--dsw-alias-label-primary);font:600 12px/1 ui-sans-serif,system-ui,sans-serif;cursor:pointer}
+.dsh-mail-tool:hover:not(:disabled){background:var(--dsw-alias-bg-layer-2);border-color:var(--dsw-alias-border-l1)}
+.dsh-mail-tool:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}
+.dsh-mail-tool:disabled{opacity:.45;cursor:default}
+.dsh-mail-editor{min-height:300px;overflow:auto;padding:16px;border:1px solid var(--dsw-alias-border-l1);border-radius:0 0 10px 10px;background:#fff;color:#1f2328;font:14px/1.55 -apple-system,Segoe UI,sans-serif;outline:none}
+.dsh-mail-editor:focus{box-shadow:0 0 0 2px var(--dsw-alias-brand-primary)}
+.dsh-mail-editor:empty::before{content:attr(data-placeholder);color:#8a8f98;pointer-events:none}
+.dsh-mail-editor p{margin:0 0 10px}
+.dsh-mail-editor h1,.dsh-mail-editor h2,.dsh-mail-editor h3{margin:0 0 8px;line-height:1.3}
+.dsh-mail-editor h1{font-size:22px}.dsh-mail-editor h2{font-size:18px}.dsh-mail-editor h3{font-size:16px}
+.dsh-mail-editor ul,.dsh-mail-editor ol{margin:0 0 10px;padding-left:22px}
+.dsh-mail-editor blockquote{margin:0 0 10px;padding-left:12px;border-left:3px solid #d0d5dd;color:#4a5058}
+.dsh-mail-editor a{color:#0b57d0}
+.dsh-mail-editor img{max-width:100%}
+.dsh-mail-editor table{border-collapse:collapse;max-width:100%}
+.dsh-mail-editor td,.dsh-mail-editor th{border:1px solid #d0d5dd;padding:4px 6px}
+.dsh-mail-editor-help{margin:6px 0 0;font-size:11px;color:var(--dsw-alias-label-secondary)}
+.dsh-mail-advanced{margin-top:8px}
+.dsh-mail-advanced summary{cursor:pointer;font-size:12px;color:var(--dsw-alias-label-secondary)}
+.dsh-mail-advanced summary:hover{color:var(--dsw-alias-label-primary)}
+.dsh-mail-advanced .dsh-mail-textarea{margin-top:8px;min-height:180px}
 .dsh-mail-textarea{width:100%;min-height:300px;resize:vertical;border:1px solid var(--dsw-alias-border-l1);border-radius:10px;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font:12.5px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace;padding:10px 12px;box-sizing:border-box}
 .dsh-mail-textarea.is-short{min-height:84px;font-family:inherit;font-size:13px}
 .dsh-mail-textarea:focus,.dsh-mail-input:focus{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}
@@ -1147,6 +1536,7 @@ window.__ModuleLoader__.load({
 .dsh-mail-button.is-quiet{border-color:transparent;background:transparent;color:var(--dsw-alias-label-secondary)}
 .dsh-mail-button.is-quiet:hover:not(:disabled){background:var(--dsw-alias-bg-layer-2);border-color:transparent;color:var(--dsw-alias-label-primary)}
 .dsh-mail-empty{margin:18px 8px;color:var(--dsw-alias-label-secondary);font-size:13px}
+.dsh-mail-detail-error{display:flex;flex-direction:column;align-items:flex-start;gap:8px}
 .dsh-mail-emptystate{max-width:520px;margin:24px 0;padding:22px;border:1px solid var(--dsw-alias-border-l1);border-radius:14px;background:var(--dsw-alias-bg-layer-1)}
 .dsh-mail-emptystate h2{margin:0 0 8px;font-size:16px;font-weight:500}
 .dsh-mail-emptystate p{margin:0 0 16px;color:var(--dsw-alias-label-secondary);font-size:13px}

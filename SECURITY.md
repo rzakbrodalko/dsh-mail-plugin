@@ -43,7 +43,7 @@ Trust boundaries:
 - **Prompt injection** — the watcher prompt marks message content as data, but the model can still be manipulated. Do not combine automatic mail with broad filesystem or shell permissions unless you accept that risk.
 - **Credential storage** — use an app password, not the primary account password. TLS is mandatory for real use. Rotate the password if the profile or machine is compromised.
 - **Data retention** — removing the plugin does not remove its credential, settings, drafts, or watcher state. Clean them explicitly if needed.
-- **Preview isolation** — the review iframe uses a sandbox and a restrictive CSP so scripts and remote images do not run while reviewing.
+- **Editor sanitization** — the visual editor strips scripts, iframes, event handlers, unsafe URLs, and remote image URLs before rendering draft markup. Raw HTML remains available under **Advanced: HTML source** for trusted, precise markup.
 
 ## Out of scope
 

@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.3.0] - 2026-11-17
+
+### Added
+
+- A **visual editor** in the review panel with bold, italic, underline, headings, lists, quotes, links, clear formatting, undo, and redo.
+- Paste sanitizing that strips scripts, event handlers, unsafe URLs, and unsupported markup.
+- The HTML source editor is now optional and collapsed under **Advanced: HTML source**.
+- The separate Preview mode was removed; the visual editor is the single review surface.
+- Browser spellcheck underlines are disabled in the visual editor to avoid marking non-English replies.
+- H2, H3, and Quote act as toggles back to a normal paragraph; Clear formatting resets inline styles, links, lists, and block formatting.
+- Quote wraps a paragraph or an entire list once and removes nested quote wrappers in one click.
+- Quoting and Clear formatting preserve the caret by mapping it through the document text offsets.
+
 ## [1.2.0] - 2026-11-14
 
 ### Added

@@ -578,7 +578,7 @@ window.__ModuleLoader__.load({
         if (document.activeElement !== editor && editor.innerHTML !== html) {
           editor.innerHTML = html
         }
-      }, [html, editable])
+      }, [html, editable, mode])
 
       function syncEditor() {
         if (editorRef.current !== null) setHtml(editorRef.current.innerHTML)

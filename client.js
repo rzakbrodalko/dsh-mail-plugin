@@ -617,6 +617,48 @@ window.__ModuleLoader__.load({
         return block?.tagName.toLowerCase() ?? 'p'
       }
 
+      function selectedElement() {
+        const selection = window.getSelection()
+        if (selection === null || selection.rangeCount === 0) return null
+        let node = selection.anchorNode
+        if (node !== null && node.nodeType === 3) node = node.parentElement
+        return node instanceof Element ? node : null
+      }
+
+      function unwrapElement(element) {
+        const parent = element.parentNode
+        if (parent === null) return
+        while (element.firstChild) parent.insertBefore(element.firstChild, element)
+        element.remove()
+      }
+
+      function toggleQuote() {
+        if (!editable) return
+        const editor = editorRef.current
+        if (editor === null) return
+        editor.focus()
+        const node = selectedElement()
+        if (node === null || !editor.contains(node)) return
+        const quote = node.closest('blockquote')
+        if (quote !== null && editor.contains(quote)) {
+          let current = quote
+          while (current !== null && editor.contains(current)) {
+            unwrapElement(current)
+            current = node.closest('blockquote')
+          }
+          syncEditor()
+          return
+        }
+        const block = node.closest('p,h1,h2,h3,h4,li,ul,ol')
+        if (block === null || !editor.contains(block)) return
+        const target = block.tagName === 'LI' ? block.closest('ul,ol') : block
+        if (target === null || target.parentNode === null) return
+        const wrapper = document.createElement('blockquote')
+        target.parentNode.insertBefore(wrapper, target)
+        wrapper.appendChild(target)
+        syncEditor()
+      }
+
       function toggleBlock(tag) {
         const target = currentBlockTag() === tag ? 'p' : tag
         applyCommand('formatBlock', `<${target}>`)
@@ -628,6 +670,12 @@ window.__ModuleLoader__.load({
         if (editor === null) return
         editor.focus()
         try {
+          const node = selectedElement()
+          let quote = node?.closest('blockquote')
+          while (quote !== null && quote !== undefined && editor.contains(quote)) {
+            unwrapElement(quote)
+            quote = node.closest('blockquote')
+          }
           document.execCommand('removeFormat')
           document.execCommand('unlink')
           document.execCommand('formatBlock', false, '<p>')
@@ -758,7 +806,15 @@ window.__ModuleLoader__.load({
             blockTool('H3', 'h3', 'Heading 3'),
             tool('•', 'insertUnorderedList', 'Bulleted list'),
             tool('1.', 'insertOrderedList', 'Numbered list'),
-            blockTool('❝', 'blockquote', 'Quote'),
+            h('button', {
+              type: 'button',
+              className: 'dsh-mail-tool',
+              disabled: !editable || busy,
+              title: t('Quote'),
+              'aria-label': t('Quote'),
+              onMouseDown: event => event.preventDefault(),
+              onClick: toggleQuote,
+            }, '❝'),
             h('button', {
               type: 'button',
               className: 'dsh-mail-tool',

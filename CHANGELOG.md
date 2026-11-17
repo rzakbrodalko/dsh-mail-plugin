@@ -12,6 +12,7 @@ All notable changes to this project are documented here. The format follows [Kee
 - The separate Preview mode was removed; the visual editor is the single review surface.
 - Browser spellcheck underlines are disabled in the visual editor to avoid marking non-English replies.
 - H2, H3, and Quote act as toggles back to a normal paragraph; Clear formatting resets inline styles, links, lists, and block formatting.
+- Quote wraps a paragraph or an entire list once and removes nested quote wrappers in one click.
 
 ## [1.2.0] - 2026-11-14
 

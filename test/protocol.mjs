@@ -244,6 +244,7 @@ try {
     session: { id: 'session-1' },
     status: 'idle',
     followup(message) { notified.push(message) },
+    steer(message) { notified.push(message) },
   }
   const watchCtx = {
     get(name) {
@@ -303,6 +304,7 @@ try {
   const revisionRequest = await watcher.requestRevision(reply.draftId, 'Add an example.')
   assert.equal(revisionRequest.revision.status, 'requested')
   assert.match(notified.at(-1).content[0].text, /Add an example\./)
+  assert.deepEqual(notified.at(-1).source, { kind: 'user' })
   const revised = await watcher.updateDraftContent({
     draftId: reply.draftId,
     html: '<p>Confirmed with an example.</p>',

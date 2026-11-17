@@ -660,7 +660,7 @@ window.__ModuleLoader__.load({
         setRevisionError('')
         try {
           setRevising(true)
-          await call('draft/revise', { id: draft.id, instruction: text, html, subject })
+          await call('draft/revise', { id: draft.id, instruction: text, html, subject, baseUpdatedAt: draft.updatedAt })
           setInstruction('')
         } catch (failure) {
           setRevising(false)

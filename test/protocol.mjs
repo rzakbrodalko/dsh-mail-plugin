@@ -244,6 +244,7 @@ try {
     session: { id: 'session-1' },
     status: 'idle',
     followup(message) { notified.push(message) },
+    steer(message) { notified.push(message) },
   }
   const watchCtx = {
     get(name) {
@@ -297,6 +298,22 @@ try {
   assert.equal(reply.contact.name, 'Partner Org')
   assert.equal(reply.recipientContacts[0].address, 'alice@partner.org')
   assert.equal(reply.recipientContacts[0].contact.relationship, 'client')
+
+  await store.mutate(drafts => drafts.map(entry =>
+    entry.id === reply.draftId ? { ...entry, ownerSessionId: 'session-1' } : entry))
+  const revisionRequest = await watcher.requestRevision(reply.draftId, 'Add an example.')
+  assert.equal(revisionRequest.revision.status, 'requested')
+  assert.match(notified.at(-1).content[0].text, /Add an example\./)
+  assert.deepEqual(notified.at(-1).source, { kind: 'user' })
+  const revised = await watcher.updateDraftContent({
+    draftId: reply.draftId,
+    html: '<p>Confirmed with an example.</p>',
+  })
+  assert.equal(revised.html, '<p>Confirmed with an example.</p>')
+  assert.equal(revised.revision.status, 'ready')
+  assert.equal(revised.revision.count, 1)
+  assert.equal(store.getDraft(reply.draftId).status, 'pending_review')
+
   const pendingList = await service.handleRpc('drafts/list')
   assert.equal(pendingList.pending.length, 1)
   assert.ok(Array.isArray(pendingList.approved))

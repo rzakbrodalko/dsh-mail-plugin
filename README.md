@@ -10,6 +10,7 @@ A community plugin for DSH. It is not an official DeepSeek project.
 - **Agent tools** — list/read mail, draft HTML replies, send approved drafts.
 - **Review gate** — replies to untrusted recipients wait for your approval.
 - **Visual review editor** — format replies directly; raw HTML remains available as an advanced option.
+- **Conversational revisions** — ask the model to make a draft more specific, shorter, warmer, or add an example, then review the result.
 - **Trusted recipients** — whitelist exact addresses (`test@example.com`) or domains (`example.com`, including subdomains).
 - **Incoming attachments** — save decoded attachments to a bounded local folder with safe names, then inspect them with normal DSH tools.
 - **Background watcher** — polls for new mail and wakes the session that last used a Mail tool; trusted replies can be sent automatically.
@@ -30,7 +31,7 @@ Works with any standard IMAP4rev1 + SMTP submission server that supports LOGIN o
 Install the package through **Plugins → Add plugin** and use the package spec:
 
 ```text
-dsh-mail-plugin@1.3.0
+dsh-mail-plugin@1.4.0
 ```
 
 The equivalent agent operation is `plugin_manager` with `action: "install_bundle"` and that spec as `target`. Installation is profile-wide and survives restart.
@@ -90,6 +91,8 @@ The agent calls:
 | `mail_reply` | Create a multipart/alternative HTML reply draft with threading headers |
 | `mail_send` | Send an approved or auto-approved draft |
 | `mail_drafts` | Inspect draft review/send state |
+| `mail_draft_get` | Read an existing draft for a user-requested revision |
+| `mail_draft_update` | Replace a draft’s HTML/subject without sending it |
 | `mail_contacts` | Look up or list saved contact profiles |
 | `mail_status` | Report account, review policy, contacts, watcher state, and pending reviews |
 
@@ -103,6 +106,18 @@ The review panel opens on the **only** editing surface: a visual editor with bas
 - **Advanced: HTML source** is collapsed by default for precise markup, tables, or images.
 - Visual editing is intentionally simplified; use the HTML source when exact email markup matters.
 - Approved drafts can still be edited and sent; sent and rejected drafts are read-only.
+
+### Conversational revisions
+
+Below the editor, enter what should change — for example “be more specific” or “add an example” — and choose **Revise**. Quick chips cover the common requests.
+
+- The request is sent to the chat session that owns the draft.
+- The model reads the current draft, including unsaved editor changes, with `mail_draft_get`.
+- It replaces the content with `mail_draft_update`.
+- The draft stays in **Mail → Review**; the model cannot approve or send it.
+- The panel shows “Revising…”, then the updated draft. Errors, including no active session, are shown in the panel.
+
+Revision requests need an active session that can call Mail tools. If the owner session is closed, reopen it or revise manually.
 
 ### Trusted recipients
 

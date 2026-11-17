@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "邮件",
-    "description": "通过 IMAP 读取邮箱、监听新邮件，并发送经过审核的 multipart HTML 回复。受信任的收件人可自动回复；联系人档案用于调整语言和语气，审核面板提供可视化编辑器。",
+    "description": "通过 IMAP 读取邮箱、监听新邮件，并发送经过审核的 multipart HTML 回复。受信任的收件人可自动回复；联系人档案用于调整语言和语气，审核面板提供可视化编辑器，并可让模型按请求修改草稿。",
     "detail": "docs/DETAIL.zh.md"
   }
 }

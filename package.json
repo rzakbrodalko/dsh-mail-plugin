@@ -1,6 +1,6 @@
 {
   "name": "dsh-mail-plugin",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Read IMAP mail, watch for new messages, and send reviewed multipart HTML replies from DeepSeek Harness.",
   "license": "MIT",
   "author": "Robert Zak-Brodalko",

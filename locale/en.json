@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "Mail",
-    "description": "Read a mailbox over IMAP, watch it for new mail, and send reviewed multipart HTML replies. Trusted recipients can be answered automatically; contact profiles guide language and tone, and the review panel has a visual editor.",
+    "description": "Read a mailbox over IMAP, watch it for new mail, and send reviewed multipart HTML replies. Trusted recipients can be answered automatically; contact profiles guide language and tone, the review panel has a visual editor, and the model can revise drafts on request.",
     "detail": "docs/DETAIL.md"
   }
 }

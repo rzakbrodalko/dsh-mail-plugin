@@ -607,12 +607,14 @@ window.__ModuleLoader__.load({
           : draft.revision?.error ?? '',
       )
       const [revising, setRevising] = useState(draft.revision?.status === 'requested' && !staleRequest)
+      const [requesting, setRequesting] = useState(false)
       const editorRef = useRef(null)
       const skipHydrateRef = useRef(false)
       const loadedHtmlRef = useRef(draft.html)
       const dirty = html !== draft.html || subject !== draft.subject
       const editable = draft.status !== 'sent' && draft.status !== 'rejected'
-      const editorEditable = editable && !revising
+      const revisionBusy = revising || requesting
+      const editorEditable = editable && !revisionBusy
       const sourceFrom = (draft.sourceFrom ?? [])
         .map(entry => (entry.name ? `${entry.name} <${entry.address}>` : entry.address))
         .join(', ')
@@ -657,10 +659,10 @@ window.__ModuleLoader__.load({
 
       async function submitRevision(value) {
         const text = String(value ?? instruction).trim()
-        if (!editable || revising || text === '') return
+        if (!editable || revisionBusy || text === '') return
         setRevisionError('')
+        setRequesting(true)
         try {
-          setRevising(true)
           await call('draft/revise', {
             id: draft.id,
             instruction: text,
@@ -670,9 +672,12 @@ window.__ModuleLoader__.load({
             baseUpdatedAt: draft.updatedAt,
           })
           setInstruction('')
+          setRevising(true)
         } catch (failure) {
           setRevising(false)
           setRevisionError(failure instanceof Error ? failure.message : String(failure))
+        } finally {
+          setRequesting(false)
         }
       }
 
@@ -704,7 +709,7 @@ window.__ModuleLoader__.load({
       }
 
       function applyCommand(command, value) {
-        if (!editable || revising) return
+        if (!editable || revisionBusy) return
         const editor = editorRef.current
         if (editor === null) return
         editor.focus()
@@ -823,7 +828,7 @@ window.__ModuleLoader__.load({
       }
 
       function clearFormatting() {
-        if (!editable || revising) return
+        if (!editable || revisionBusy) return
         const editor = editorRef.current
         if (editor === null) return
         const offsets = selectionOffsets(editor)
@@ -849,7 +854,7 @@ window.__ModuleLoader__.load({
       }
 
       function addLink() {
-        if (!editable || revising) return
+        if (!editable || revisionBusy) return
         const editor = editorRef.current
         if (editor === null) return
         const selection = window.getSelection()
@@ -877,7 +882,7 @@ window.__ModuleLoader__.load({
       }
 
       function pasteEditor(event) {
-        if (!editable || revising) return
+        if (!editable || revisionBusy) return
         event.preventDefault()
         const clipboard = event.clipboardData
         if (clipboard === null) return
@@ -1030,7 +1035,7 @@ window.__ModuleLoader__.load({
               h('input', {
                 className: 'dsh-mail-input',
                 value: instruction,
-                disabled: busy || revising,
+                disabled: busy || revisionBusy,
                 placeholder: t('Describe the change you want…'),
                 onChange: event => setInstruction(event.target.value),
                 onKeyDown: event => {
@@ -1043,9 +1048,9 @@ window.__ModuleLoader__.load({
               h('button', {
                 type: 'button',
                 className: 'dsh-mail-button',
-                disabled: busy || revising || instruction.trim() === '',
+                disabled: busy || revisionBusy || instruction.trim() === '',
                 onClick: () => { void submitRevision() },
-              }, revising ? t('Revising…') : t('Revise')),
+              }, revisionBusy ? t('Revising…') : t('Revise')),
             ),
             h('div', { className: 'dsh-mail-revision-quick' },
               ['More specific', 'Add an example', 'Shorter', 'More formal', 'Warmer'].map(label =>
@@ -1053,13 +1058,13 @@ window.__ModuleLoader__.load({
                   key: label,
                   type: 'button',
                   className: 'dsh-mail-chip',
-                  disabled: busy || revising,
+                  disabled: busy || revisionBusy,
                   onClick: () => { void submitRevision(t(label)) },
                 }, t(label))),
             ),
-            revising ? h('p', { className: 'dsh-mail-editor-help' }, t('The model is revising this draft…')) : null,
+            revisionBusy ? h('p', { className: 'dsh-mail-editor-help' }, t('The model is revising this draft…')) : null,
             revisionError !== '' ? h('p', { className: 'dsh-mail-revision-error' }, revisionError) : null,
-            !revising && draft.revision?.instruction
+            !revisionBusy && draft.revision?.instruction
               ? h('p', { className: 'dsh-mail-editor-help' }, fill(t('Last request: {instruction}'), { instruction: draft.revision.instruction }))
               : null,
           )
@@ -1067,25 +1072,25 @@ window.__ModuleLoader__.load({
         h('div', { className: 'dsh-mail-actions' },
           draft.status === 'pending_review'
             ? h('button', {
-              type: 'button', className: 'dsh-mail-button is-primary', disabled: busy || revising,
+              type: 'button', className: 'dsh-mail-button is-primary', disabled: busy || revisionBusy,
               onClick: () => { void sendCurrent(onApprove) },
             }, busy ? t('Sending…') : t('Approve & send'))
             : null,
           (draft.status === 'approved' || draft.status === 'failed')
             ? h('button', {
-              type: 'button', className: 'dsh-mail-button is-primary', disabled: busy || revising,
+              type: 'button', className: 'dsh-mail-button is-primary', disabled: busy || revisionBusy,
               onClick: () => { void sendCurrent(onRetry) },
             }, busy ? t('Sending…') : t('Send now'))
             : null,
           editable
             ? h('button', {
-              type: 'button', className: 'dsh-mail-button', disabled: busy || revising || !dirty,
+              type: 'button', className: 'dsh-mail-button', disabled: busy || revisionBusy || !dirty,
               onClick: () => { setConfirm(''); void onSave({ html, subject }) },
             }, t('Save changes'))
             : null,
           editable
             ? h('button', {
-              type: 'button', className: 'dsh-mail-button is-danger', disabled: busy || revising,
+              type: 'button', className: 'dsh-mail-button is-danger', disabled: busy || revisionBusy,
               onClick: () => {
                 if (confirm === 'reject') {
                   setConfirm('')

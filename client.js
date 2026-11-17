@@ -609,6 +609,7 @@ window.__ModuleLoader__.load({
       const [revising, setRevising] = useState(draft.revision?.status === 'requested' && !staleRequest)
       const editorRef = useRef(null)
       const skipHydrateRef = useRef(false)
+      const loadedHtmlRef = useRef(draft.html)
       const dirty = html !== draft.html || subject !== draft.subject
       const editable = draft.status !== 'sent' && draft.status !== 'rejected'
       const editorEditable = editable && !revising
@@ -660,13 +661,28 @@ window.__ModuleLoader__.load({
         setRevisionError('')
         try {
           setRevising(true)
-          await call('draft/revise', { id: draft.id, instruction: text, html, subject, baseUpdatedAt: draft.updatedAt })
+          await call('draft/revise', {
+            id: draft.id,
+            instruction: text,
+            html,
+            subject,
+            baseHtml: loadedHtmlRef.current,
+            baseUpdatedAt: draft.updatedAt,
+          })
           setInstruction('')
         } catch (failure) {
           setRevising(false)
           setRevisionError(failure instanceof Error ? failure.message : String(failure))
         }
       }
+
+      useEffect(() => {
+        if (draft.revision?.status === 'ready') {
+          setHtml(draft.html)
+          setSubject(draft.subject)
+          loadedHtmlRef.current = draft.html
+        }
+      }, [draft.updatedAt, draft.revision?.status])
 
       useEffect(() => {
         const editor = editorRef.current

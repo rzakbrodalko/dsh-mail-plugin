@@ -12,7 +12,7 @@ All notable changes to this project are documented here. The format follows [Kee
 - Revision requests are queued to the session that owns the draft and never send the draft.
 - Revision status, last request, and errors are visible in the panel.
 - Revision requests use step steering so a busy session handles them instead of leaving them queued for a later turn; stale requests time out after two minutes and can be retried.
-- A revision request only applies the panel’s editor snapshot when it matches the draft’s current `updatedAt`; a newer server revision is never overwritten by a stale panel state.
+- A revision request only applies the panel’s editor snapshot when it matches both the draft’s current `updatedAt` and the exact HTML the editor started from; stale or one-step-behind panel state can no longer overwrite a newer revision.
 
 ### Changed
 

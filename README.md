@@ -9,6 +9,7 @@ A community plugin for DSH. It is not an official DeepSeek project.
 - **Sidebar panel** — `Mail` in the left sidebar, with Review, Contacts, and Settings tabs.
 - **Agent tools** — list/read mail, draft HTML replies, send approved drafts.
 - **Review gate** — replies to untrusted recipients wait for your approval.
+- **Visual review editor** — format replies directly, with an email-safe preview; raw HTML remains available as an advanced option.
 - **Trusted recipients** — whitelist exact addresses (`test@example.com`) or domains (`example.com`, including subdomains).
 - **Incoming attachments** — save decoded attachments to a bounded local folder with safe names, then inspect them with normal DSH tools.
 - **Background watcher** — polls for new mail and wakes the session that last used a Mail tool; trusted replies can be sent automatically.
@@ -29,7 +30,7 @@ Works with any standard IMAP4rev1 + SMTP submission server that supports LOGIN o
 Install the package through **Plugins → Add plugin** and use the package spec:
 
 ```text
-dsh-mail-plugin@1.2.0
+dsh-mail-plugin@1.3.0
 ```
 
 The equivalent agent operation is `plugin_manager` with `action: "install_bundle"` and that spec as `target`. Installation is profile-wide and survives restart.
@@ -93,6 +94,15 @@ The agent calls:
 | `mail_status` | Report account, review policy, contacts, watcher state, and pending reviews |
 
 A reply is delivered only by `mail_send`. If `mail_reply` reports `reviewRequired: true`, the draft waits in **Mail → Review**; the agent cannot approve it.
+
+### Review editor
+
+The review panel opens on a **visual editor** with basic email formatting: bold, italic, underline, headings, bulleted and numbered lists, quotes, links, clear formatting, undo, and redo. The rendered email preview stays beside it.
+
+- Pasted content is sanitized: scripts, iframes, event handlers, and unsafe URLs are removed.
+- **Advanced: HTML source** is collapsed by default for precise markup, tables, or images.
+- Visual editing is intentionally simplified; use the HTML source when exact email markup matters.
+- Approved drafts can still be edited and sent; sent and rejected drafts are read-only.
 
 ### Trusted recipients
 

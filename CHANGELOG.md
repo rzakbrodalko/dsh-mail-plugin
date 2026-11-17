@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.3.0] - 2026-11-17
+
+### Added
+
+- A **visual editor** in the review panel with bold, italic, underline, headings, lists, quotes, links, clear formatting, undo, and redo.
+- Paste sanitizing that strips scripts, event handlers, unsafe URLs, and unsupported markup.
+- The HTML source editor is now optional and collapsed under **Advanced: HTML source**.
+- The rendered preview remains side by side with the visual editor for email-safe review.
+
 ## [1.2.0] - 2026-11-14
 
 ### Added

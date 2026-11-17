@@ -51,6 +51,24 @@ window.__ModuleLoader__.load({
       'Subject': '主题',
       'Rendered HTML': 'HTML 预览',
       'HTML source': 'HTML 源码',
+      'Visual editor': '可视化编辑器',
+      'Basic formatting': '基础格式',
+      'Bold': '粗体',
+      'Italic': '斜体',
+      'Underline': '下划线',
+      'Heading 2': '标题 2',
+      'Heading 3': '标题 3',
+      'Bulleted list': '项目符号列表',
+      'Numbered list': '编号列表',
+      'Quote': '引用',
+      'Link': '链接',
+      'Clear formatting': '清除格式',
+      'Undo': '撤销',
+      'Redo': '重做',
+      'Link URL': '链接地址',
+      'Advanced: HTML source': '高级：HTML 源码',
+      'Write the reply…': '撰写回复…',
+      'Visual editing is simplified; use Advanced HTML for tables or images.': '可视化编辑会简化格式；表格或图片请使用高级 HTML。',
       'Sending…': '发送中…',
       'Approve & send': '批准并发送',
       'Send now': '立即发送',
@@ -158,6 +176,63 @@ window.__ModuleLoader__.load({
       const required = /^Review is required for (.+)$/.exec(reason)
       if (required !== null) return fill(t('Review is required for {recipients}'), { recipients: required[1] })
       return reason
+    }
+
+    const PASTE_TAGS = new Set([
+      'a', 'b', 'blockquote', 'br', 'caption', 'div', 'em', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+      'hr', 'i', 'img', 'li', 'ol', 'p', 's', 'span', 'strong', 'table', 'tbody', 'td', 'tfoot',
+      'th', 'thead', 'tr', 'u', 'ul',
+    ])
+    const PASTE_ATTRS = new Set([
+      'href', 'src', 'alt', 'title', 'width', 'height', 'colspan', 'rowspan', 'style', 'align', 'valign',
+    ])
+
+    /** Strip markup and attributes that should never enter the visual editor. */
+    function sanitizePastedHtml(input) {
+      const doc = new DOMParser().parseFromString(String(input ?? ''), 'text/html')
+      const unsafe = new Set(['script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'button', 'link', 'meta', 'base', 'title'])
+      function walk(node) {
+        if (node.nodeType === Node.TEXT_NODE) return
+        if (node.nodeType !== Node.ELEMENT_NODE) {
+          node.remove()
+          return
+        }
+        const tag = node.tagName.toLowerCase()
+        if (unsafe.has(tag)) {
+          node.remove()
+          return
+        }
+        for (const child of [...node.childNodes]) walk(child)
+        if (!PASTE_TAGS.has(tag)) {
+          const parent = node.parentNode
+          while (node.firstChild) parent.insertBefore(node.firstChild, node)
+          node.remove()
+          return
+        }
+        for (const attribute of [...node.attributes]) {
+          const name = attribute.name.toLowerCase()
+          if (!PASTE_ATTRS.has(name) || name.startsWith('on')) {
+            node.removeAttribute(attribute.name)
+            continue
+          }
+          const value = attribute.value.trim()
+          if (name === 'href' && !/^(https?:|mailto:|#)/i.test(value)) node.removeAttribute(attribute.name)
+          if (name === 'src' && !/^(https?:|data:image\/)/i.test(value)) node.removeAttribute(attribute.name)
+          if (name === 'style' && /(expression|behavior\s*:|url\s*\(\s*['"]?\s*javascript:)/i.test(value)) {
+            node.removeAttribute(attribute.name)
+          }
+        }
+      }
+      for (const child of [...doc.body.childNodes]) walk(child)
+      return doc.body.innerHTML
+    }
+
+    function plainTextToHtml(text) {
+      return String(text ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\r?\n/g, '<br>')
     }
 
     function formatDate(value) {
@@ -487,11 +562,91 @@ window.__ModuleLoader__.load({
       const [html, setHtml] = useState(draft.html)
       const [subject, setSubject] = useState(draft.subject)
       const [confirm, setConfirm] = useState('')
+      const editorRef = useRef(null)
       const dirty = html !== draft.html || subject !== draft.subject
       const editable = draft.status !== 'sent' && draft.status !== 'rejected'
       const sourceFrom = (draft.sourceFrom ?? [])
         .map(entry => (entry.name ? `${entry.name} <${entry.address}>` : entry.address))
         .join(', ')
+
+      useEffect(() => {
+        const editor = editorRef.current
+        if (editor === null) return
+        if (document.activeElement !== editor && editor.innerHTML !== html) {
+          editor.innerHTML = html
+        }
+      }, [html, editable])
+
+      function syncEditor() {
+        if (editorRef.current !== null) setHtml(editorRef.current.innerHTML)
+      }
+
+      function applyCommand(command, value) {
+        if (!editable) return
+        const editor = editorRef.current
+        if (editor === null) return
+        editor.focus()
+        try {
+          document.execCommand(command, false, value)
+        } catch {
+          // Some embedded browsers disable execCommand; typing still works.
+        }
+        syncEditor()
+      }
+
+      function addLink() {
+        if (!editable) return
+        const editor = editorRef.current
+        if (editor === null) return
+        const selection = window.getSelection()
+        const savedRange = selection !== null && selection.rangeCount > 0
+          ? selection.getRangeAt(0).cloneRange()
+          : null
+        const url = window.prompt(t('Link URL'), 'https://')
+        if (url === null || !/^(https?:|mailto:)/i.test(url.trim())) return
+        editor.focus()
+        if (savedRange !== null) {
+          selection.removeAllRanges()
+          selection.addRange(savedRange)
+        }
+        if (savedRange === null || savedRange.collapsed) {
+          const safeUrl = url.trim()
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+          document.execCommand('insertHTML', false, `<a href="${safeUrl}">${safeUrl}</a>`)
+        } else {
+          document.execCommand('createLink', false, url.trim())
+        }
+        syncEditor()
+      }
+
+      function pasteEditor(event) {
+        if (!editable) return
+        event.preventDefault()
+        const clipboard = event.clipboardData
+        if (clipboard === null) return
+        const rich = clipboard.getData('text/html')
+        const plain = clipboard.getData('text/plain')
+        const safe = rich.trim() === '' ? plainTextToHtml(plain) : sanitizePastedHtml(rich)
+        editorRef.current?.focus()
+        document.execCommand('insertHTML', false, safe)
+        syncEditor()
+      }
+
+      function tool(label, command, title, value) {
+        return h('button', {
+          type: 'button',
+          className: 'dsh-mail-tool',
+          disabled: !editable || busy,
+          title: t(title),
+          'aria-label': t(title),
+          onMouseDown: event => event.preventDefault(),
+          onClick: () => applyCommand(command, value),
+        }, label)
+      }
+
       async function sendCurrent(action) {
         if (dirty) {
           const saved = await onSave({ html, subject })
@@ -547,14 +702,57 @@ window.__ModuleLoader__.load({
             preview,
           ),
           h('div', { className: 'dsh-mail-pane' },
-            h('div', { className: 'dsh-mail-pane-title' }, t('HTML source')),
-            h('textarea', {
-              className: 'dsh-mail-textarea',
-              value: html,
-              disabled: !editable,
-              spellCheck: false,
-              onChange: event => { setConfirm(''); setHtml(event.target.value) },
+            h('div', { className: 'dsh-mail-pane-head' },
+              h('div', { className: 'dsh-mail-pane-title' }, t('Visual editor')),
+              h('span', { className: 'dsh-mail-editor-hint' }, t('Basic formatting')),
+            ),
+            h('div', { className: 'dsh-mail-toolbar' },
+              tool('B', 'bold', 'Bold'),
+              tool('I', 'italic', 'Italic'),
+              tool('U', 'underline', 'Underline'),
+              tool('H2', 'formatBlock', 'Heading 2', '<h2>'),
+              tool('H3', 'formatBlock', 'Heading 3', '<h3>'),
+              tool('•', 'insertUnorderedList', 'Bulleted list'),
+              tool('1.', 'insertOrderedList', 'Numbered list'),
+              tool('❝', 'formatBlock', 'Quote', '<blockquote>'),
+              h('button', {
+                type: 'button',
+                className: 'dsh-mail-tool',
+                disabled: !editable || busy,
+                title: t('Link'),
+                'aria-label': t('Link'),
+                onMouseDown: event => event.preventDefault(),
+                onClick: addLink,
+              }, '🔗'),
+              tool('⌫', 'removeFormat', 'Clear formatting'),
+              tool('↶', 'undo', 'Undo'),
+              tool('↷', 'redo', 'Redo'),
+            ),
+            h('div', {
+              className: 'dsh-mail-editor',
+              ref: editorRef,
+              contentEditable: editable,
+              suppressContentEditableWarning: true,
+              spellCheck: true,
+              role: 'textbox',
+              'aria-multiline': 'true',
+              'aria-label': t('Visual editor'),
+              'data-placeholder': t('Write the reply…'),
+              onInput: event => { setConfirm(''); setHtml(event.currentTarget.innerHTML) },
+              onPaste: pasteEditor,
             }),
+            h('p', { className: 'dsh-mail-editor-help' },
+              t('Visual editing is simplified; use Advanced HTML for tables or images.')),
+            h('details', { className: 'dsh-mail-advanced' },
+              h('summary', null, t('Advanced: HTML source')),
+              h('textarea', {
+                className: 'dsh-mail-textarea',
+                value: html,
+                disabled: !editable,
+                spellCheck: false,
+                onChange: event => { setConfirm(''); setHtml(event.target.value) },
+              }),
+            ),
           ),
         ),
         h('div', { className: 'dsh-mail-actions' },
@@ -1128,6 +1326,30 @@ window.__ModuleLoader__.load({
 @media (max-width:1000px){.dsh-mail-panes{grid-template-columns:1fr}}
 .dsh-mail-pane{display:flex;flex-direction:column;min-width:0;gap:6px}
 .dsh-mail-pane-title{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--dsw-alias-label-secondary)}
+.dsh-mail-pane-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.dsh-mail-editor-hint{font-size:11px;color:var(--dsw-alias-label-secondary)}
+.dsh-mail-toolbar{display:flex;flex-wrap:wrap;gap:3px;padding:6px;border:1px solid var(--dsw-alias-border-l1);border-bottom:0;border-radius:10px 10px 0 0;background:var(--dsw-alias-bg-layer-1)}
+.dsh-mail-tool{appearance:none;min-width:28px;height:26px;padding:0 6px;border:1px solid transparent;border-radius:6px;background:transparent;color:var(--dsw-alias-label-primary);font:600 12px/1 ui-sans-serif,system-ui,sans-serif;cursor:pointer}
+.dsh-mail-tool:hover:not(:disabled){background:var(--dsw-alias-bg-layer-2);border-color:var(--dsw-alias-border-l1)}
+.dsh-mail-tool:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}
+.dsh-mail-tool:disabled{opacity:.45;cursor:default}
+.dsh-mail-editor{min-height:300px;overflow:auto;padding:16px;border:1px solid var(--dsw-alias-border-l1);border-radius:0 0 10px 10px;background:#fff;color:#1f2328;font:14px/1.55 -apple-system,Segoe UI,sans-serif;outline:none}
+.dsh-mail-editor:focus{box-shadow:0 0 0 2px var(--dsw-alias-brand-primary)}
+.dsh-mail-editor:empty::before{content:attr(data-placeholder);color:#8a8f98;pointer-events:none}
+.dsh-mail-editor p{margin:0 0 10px}
+.dsh-mail-editor h1,.dsh-mail-editor h2,.dsh-mail-editor h3{margin:0 0 8px;line-height:1.3}
+.dsh-mail-editor h1{font-size:22px}.dsh-mail-editor h2{font-size:18px}.dsh-mail-editor h3{font-size:16px}
+.dsh-mail-editor ul,.dsh-mail-editor ol{margin:0 0 10px;padding-left:22px}
+.dsh-mail-editor blockquote{margin:0 0 10px;padding-left:12px;border-left:3px solid #d0d5dd;color:#4a5058}
+.dsh-mail-editor a{color:#0b57d0}
+.dsh-mail-editor img{max-width:100%}
+.dsh-mail-editor table{border-collapse:collapse;max-width:100%}
+.dsh-mail-editor td,.dsh-mail-editor th{border:1px solid #d0d5dd;padding:4px 6px}
+.dsh-mail-editor-help{margin:6px 0 0;font-size:11px;color:var(--dsw-alias-label-secondary)}
+.dsh-mail-advanced{margin-top:8px}
+.dsh-mail-advanced summary{cursor:pointer;font-size:12px;color:var(--dsw-alias-label-secondary)}
+.dsh-mail-advanced summary:hover{color:var(--dsw-alias-label-primary)}
+.dsh-mail-advanced .dsh-mail-textarea{margin-top:8px;min-height:180px}
 .dsh-mail-preview{width:100%;height:300px;border:1px solid var(--dsw-alias-border-l1);border-radius:10px;background:#fff}
 .dsh-mail-textarea{width:100%;min-height:300px;resize:vertical;border:1px solid var(--dsw-alias-border-l1);border-radius:10px;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font:12.5px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace;padding:10px 12px;box-sizing:border-box}
 .dsh-mail-textarea.is-short{min-height:84px;font-family:inherit;font-size:13px}

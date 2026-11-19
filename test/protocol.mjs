@@ -337,6 +337,25 @@ try {
   assertNoUndefined(await service.status())
   assertNoUndefined(service.draftSummaries())
 
+  // Attachments force review even for a trusted recipient and travel as multipart/mixed.
+  const attachmentPath = path.join(directory, 'attachment.txt')
+  fs.writeFileSync(attachmentPath, 'hello attachment\n')
+  const attachmentReply = await service.createReply({
+    uid: 12,
+    html: '<p>With attachment.</p>',
+    attachments: [attachmentPath],
+  })
+  assert.equal(attachmentReply.reviewRequired, true)
+  assert.equal(attachmentReply.attachments.length, 1)
+  assert.equal(attachmentReply.attachments[0].filename, 'attachment.txt')
+  assert.equal(service.store.getDraft(attachmentReply.draftId).status, 'pending_review')
+  const attachmentApproved = await service.approveDraft(attachmentReply.draftId)
+  assert.equal(attachmentApproved.sent, true)
+  assert.equal(smtp.captured.length, 3)
+  assert.match(smtp.captured[2], /multipart\/mixed/)
+  assert.match(smtp.captured[2], /Content-Disposition: attachment; filename="attachment.txt"/)
+  assert.match(smtp.captured[2], /aGVsbG8gYXR0YWNobWVudAo=/)
+
   fs.rmSync(directory, { recursive: true, force: true })
   console.log('IMAP/SMTP integration tests passed')
 } finally {

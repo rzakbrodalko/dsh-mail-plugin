@@ -7,6 +7,7 @@ Read a mailbox over IMAP and send reviewed, multipart HTML replies from a DeepSe
 ## What it does
 
 - **Read mail** — `mail_list` lists recent messages from a folder with sender, subject, date, unread state, a short preview, and UIDs. `mail_read` returns the decoded plain-text body, headers, attachment metadata or saved attachment paths, and optionally the HTML body. Set `saveAttachments` to save decoded files under `$DSH_HOME/mail-plugin/attachments` with safe names and size limits. Messages stay untouched unless `markSeen` is set.
+- **Outgoing attachments** — `mail_reply` accepts absolute paths in `attachments`; the service copies each file under `$DSH_HOME/mail-plugin/outgoing/<draft-id>`, records its hash, and forces review. `mail_send` re-verifies the copies and builds a `multipart/mixed` message.
 - **Draft replies** — `mail_reply` fetches the source message, addresses the reply to its sender (or `Reply-To`), sets `In-Reply-To`/`References` for threading, and stores an HTML body plus a generated plain-text alternative. The draft is multipart/alternative when sent.
 - **Review before sending** — a draft to an untrusted recipient waits in the **Mail → Review** panel. The user can compare it with the original message, edit in the visual editor or subject, and choose **Approve & send**, **Save changes**, or **Reject**. The HTML source is available under **Advanced: HTML source** when exact markup matters. Only user approval releases it. The sidebar icon shows a warning dot while a draft awaits review.
 - **Conversational revisions** — below the editor, the user can ask the model for changes such as “be more specific” or “add an example.” The plugin sends the request to the owning chat session; the model reads the current draft with `mail_draft_get`, replaces it with `mail_draft_update`, and cannot send it.
@@ -47,7 +48,7 @@ The model can check status with `mail_drafts`, `mail_contacts`, and `mail_status
 ## Limitations
 
 - One mailbox per installation; multi-account selection is not implemented.
-- Incoming attachments can be saved and inspected; outgoing attachments are not supported.
+- Incoming attachments can be saved and inspected; outgoing attachments are supported for review drafts, but every attachment forces review.
 - Plain-text extraction is heuristic; complex HTML mail may lose formatting in the text alternative.
 - The IMAP client implements the common IMAP4rev1 subset (LOGIN/SASL PLAIN, SELECT, UID SEARCH, UID FETCH, UID STORE, APPEND). Unusual server extensions or OAuth-only providers are not supported; use an app password where the provider requires one.
 - The Sent-folder copy is best effort. A missing Sent mailbox produces a warning but does not undo a successful send.

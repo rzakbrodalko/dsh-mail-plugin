@@ -14,6 +14,7 @@
 - **受信任收件人**：支持精确地址（`test@example.com`）和域名（`example.com`，含子域名）。
 - **联系人档案**：为地址或域名记录姓名、关系、语言、语气和备注，帮助 Agent 选择合适的沟通方式。
 - **接收附件**：可将解码后的附件保存到受限的本地目录，并使用 DSH 常规工具查看。
+- **发送附件**：可为审核草稿附加本地文件；文件会复制到插件存储，并以 `multipart/mixed` 发送。
 - **后台监听**：轮询新邮件并唤醒最近使用过邮件工具的会话；受信任收件人可自动发送。
 - **无运行时依赖**：基于 Node 内置模块实现的轻量 IMAP/SMTP/MIME。
 
@@ -32,7 +33,7 @@
 在 DSH 中打开 **插件 → 添加插件**，输入：
 
 ```text
-dsh-mail-plugin@1.4.0
+dsh-mail-plugin@1.5.0
 ```
 
 也可以让 Agent 使用 `plugin_manager`，`action: "install_bundle"`，`target` 填写上面的包名。安装对当前 profile 生效，重启后保留。
@@ -67,6 +68,7 @@ git+https://github.com/rzakbrodalko/dsh-mail-plugin.git#<完整40位提交>
    - **除受信任收件人外均需审核**（默认）
    - **始终审核**
    - **从不审核**：所有草稿自动批准，请谨慎使用
+   - **附件**：带有发送附件的草稿始终需要审核，不受此设置影响。
 6. 可选：启用 **自动回复** 并选择轮询间隔。
 
 密码保存在 DSH 凭据存储的 `mail-plugin/default` 记录中。设置、草稿和监听状态保存在 `$DSH_HOME/mail-plugin/`（通常是 `~/.dsh/mail-plugin/`）。
@@ -89,8 +91,8 @@ Agent 会调用：
 |---|---|
 | `mail_list` | 列出最近邮件：UID、发件人、主题、日期、未读状态、摘要 |
 | `mail_read` | 读取一封邮件，可选择保存附件并标记为已读 |
-| `mail_reply` | 创建 multipart/alternative HTML 回复草稿，带线程头 |
-| `mail_send` | 发送已批准或自动批准的草稿 |
+| `mail_reply` | 创建 multipart/alternative HTML 回复草稿；可选择附加本地文件 |
+| `mail_send` | 发送已批准或自动批准的草稿及其附件 |
 | `mail_drafts` | 查看草稿的审核/发送状态 |
 | `mail_draft_get` | 读取现有草稿，供用户请求修改 |
 | `mail_draft_update` | 替换草稿的 HTML/主题，但不会发送 |
@@ -174,9 +176,27 @@ $DSH_HOME/mail-plugin/attachments/<uid>-<时间戳>/
 - 去除路径分隔符和 Windows 保留名；文件仅所有者可读写。
 - 插件不会打开或执行附件；请使用 DSH 常规工具查看。
 - 超限附件会标记为 `skipped` 并说明原因。
-- 本版本**不支持发送附件**。
 
 下载的附件可能包含恶意软件。不要执行它们，并将其内容视为不可信数据。
+
+### 发送附件
+
+在 `mail_reply` 的 `attachments` 数组中传入本地绝对路径：
+
+```text
+mail_reply({ uid: 18, html: "<p>提案见附件。</p>", attachments: ["C:\\designs\\proposal.pdf"] })
+```
+
+创建草稿时，插件会：
+
+1. 检查文件大小：单个 10 MiB、总计 25 MiB，最多 10 个。
+2. 将文件复制到插件数据目录的 `outgoing/<draft-id>/`，使用安全文件名和仅所有者权限。
+3. 记录 SHA-256、大小和 MIME 类型。
+
+带附件的草稿**始终需要审核**，即使收件人受信任或审核策略为“从不审核”。审核面板会列出文件名和大小。批准后，服务端会重新读取复制文件、校验哈希，并以 base64 编码的 `multipart/mixed` 消息发送。
+
+发送后复制文件会保留用于审计；如在意磁盘占用，可定期清理 `$DSH_HOME/mail-plugin/outgoing/`。
+
 
 ### 后台监听
 
@@ -220,7 +240,9 @@ $DSH_HOME/mail-plugin/attachments/<uid>-<时间戳>/
 - 邮件内容是**不可信输入**。监听提示要求 Agent 将其视为数据，但模型仍可能被诱导。
 - 模型可能出错、误读请求或给出错误答案。审核机制是高价值收件人的主要防线。
 - 邮件插件本身不授予文件系统访问权限；文件或 shell 权限来自 DSH 会话的其余部分，仍受 DSH 沙箱和批准策略约束。
-- 插件不能在发出的邮件中附加文件；回复只是 HTML 文本。接收附件可以保存和查看，但可能包含恶意软件，插件不会执行它们。
+- 插件不会主动授予文件系统访问权限；Agent 使用的文件和 shell 访问来自 DSH 会话，并受 DSH 沙箱和审批策略约束。
+- 发送附件始终需要审核。请在审核面板中核对文件名和大小；插件只复制文件，不会查杀恶意软件。不要批准意料之外的附件。
+- 接收附件可以保存和查看，但可能包含恶意软件，插件不会执行它们。
 
 ### 本地数据
 
@@ -229,6 +251,7 @@ $DSH_HOME/mail-plugin/attachments/<uid>-<时间戳>/
 - `$DSH_HOME/mail-plugin/watcher.json`：最近 UID 和监听状态。
 - `$DSH_HOME/mail-plugin/contacts.json`：你填写的联系人档案和备注。
 - `$DSH_HOME/mail-plugin/attachments/`：保存的接收附件和清单；需要定期清理。
+- `$DSH_HOME/mail-plugin/outgoing/`：发送附件的副本，按草稿 id 分组；也需要定期清理。
 - 在支持的平台上以仅所有者可读写的权限写入。请保护 DSH home 和备份。
 
 ### 网络与隐私
@@ -249,7 +272,7 @@ $DSH_HOME/mail-plugin/attachments/<uid>-<时间戳>/
 
 - 每个安装只支持一个邮箱，没有多账户选择器。
 - 不支持 OAuth；仅支持应用专用密码。
-- 接收附件可以保存和查看；不支持发送附件。
+- 接收附件可以保存和查看；审核草稿可以发送附件，限制为单个 10 MiB、总计 25 MiB。
 - 没有 IMAP IDLE；监听基于轮询。
 - 草稿不同步到服务器草稿箱，保存在插件本地。
 - 纯文本提取是启发式的，复杂 HTML 可能丢失格式。

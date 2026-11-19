@@ -48,6 +48,25 @@ assert.match(parsedBack.html, /<strong>bold<\/strong>/)
 assert.match(parsedBack.text, /Hello/)
 assert.equal(parsedBack.messageId, built.messageId)
 
+// 1b. Attachments produce multipart/mixed and survive the parser.
+const attachmentBytes = Buffer.from('%PDF-1.7\nproposal\n', 'utf8')
+const withAttachment = buildMessage({
+  from: { name: 'Zoë', address: 'zoe@example.com' },
+  to: [{ name: 'Jan', address: 'jan@partner.org' }],
+  subject: 'Proposal',
+  html: '<p>See attached.</p>',
+  attachments: [{ filename: 'proposal.pdf', contentType: 'application/pdf', content: attachmentBytes }],
+})
+assert.match(withAttachment.raw, /Content-Type: multipart\/mixed/)
+assert.match(withAttachment.raw, /Content-Disposition: attachment; filename="proposal.pdf"/)
+assert.match(withAttachment.raw, /filename\*=UTF-8''proposal\.pdf/)
+const parsedAttachment = parseMessage(Buffer.from(withAttachment.raw, 'utf8'), { includeAttachmentContent: true })
+assert.equal(parsedAttachment.attachments.length, 1)
+assert.equal(parsedAttachment.attachments[0].filename, 'proposal.pdf')
+assert.equal(parsedAttachment.attachments[0].contentType, 'application/pdf')
+assert.deepEqual(parsedAttachment.attachments[0].content, attachmentBytes)
+assert.match(parsedAttachment.html, /See attached/)
+
 // 2. Parse a server-style multipart with quoted-printable and base64 parts.
 const raw = [
   'From: =?UTF-8?B?Wm/Dqw==?= <zoe@example.com>',
@@ -125,6 +144,21 @@ store.getSettings().review.mode = 'always'
 assert.equal(service.reviewDecision([{ address: 'x@example.com' }]).required, true)
 store.getSettings().review.mode = 'never'
 assert.equal(service.reviewDecision([{ address: 'x@other.org' }]).required, false)
+assert.equal(service.reviewDecision([{ address: 'x@other.org' }], true).required, true)
+assert.equal(service.reviewDecision([{ address: 'x@other.org' }], true).reason, 'Attachments require review')
+
+// 5b. Outgoing files are copied into the plugin store and verified at load time.
+const sourceAttachment = path.join(directory, 'source-proposal.pdf')
+fs.writeFileSync(sourceAttachment, attachmentBytes)
+const storedAttachments = await service.prepareOutgoingAttachments([sourceAttachment], 'd-attach')
+assert.equal(storedAttachments.length, 1)
+assert.equal(storedAttachments[0].filename, 'source-proposal.pdf')
+assert.equal(storedAttachments[0].contentType, 'application/pdf')
+assert.ok(storedAttachments[0].path.startsWith(path.join(directory, 'outgoing', 'd-attach')))
+fs.rmSync(sourceAttachment)
+const loadedAttachments = await service.loadOutgoingAttachments({ attachments: storedAttachments })
+assert.equal(loadedAttachments.length, 1)
+assert.deepEqual(loadedAttachments[0].content, attachmentBytes)
 
 // 6. Contact profiles: exact address wins over domain and longest domain wins.
 const domainContact = await service.saveContact({

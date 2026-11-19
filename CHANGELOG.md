@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.5.0] - 2026-11-19
+
+### Added
+
+- **Outgoing attachments** for `mail_reply`: pass absolute paths, and the plugin copies the files into `$DSH_HOME/mail-plugin/outgoing/<draft-id>/` with sanitized names, owner-only permissions, and SHA-256 hashes.
+- `mail_send` now verifies the stored attachment copies and sends `multipart/mixed` messages with base64-encoded attachments.
+- The review panel lists attachment filenames and sizes.
+- Limits: 10 MiB per file, 25 MiB total, at most 10 files.
+
+### Security
+
+- Any draft with an attachment **always requires review**, even for trusted recipients and even when the review policy is **Never**.
+- Attachment copies are re-verified at send time; a changed or missing file aborts the send.
+
 ## [1.4.0] - 2026-11-17
 
 ### Added

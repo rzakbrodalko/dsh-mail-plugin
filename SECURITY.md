@@ -26,6 +26,7 @@ Assets:
 - IMAP/SMTP credentials.
 - Mailbox contents and message metadata.
 - Draft bodies and recipient addresses on local disk.
+- Copies of outgoing attachment files under `$DSH_HOME/mail-plugin/outgoing`.
 - The ability to send messages as the configured account.
 
 Trust boundaries:
@@ -33,7 +34,8 @@ Trust boundaries:
 1. **Provider** — IMAP/SMTP servers are contacted over TLS by default. Selecting `None` sends credentials and mail in plaintext.
 2. **Model** — email content is untrusted input. The watcher prompt tells the model to treat it as data, but prompt injection remains possible.
 3. **Sender identity** — a trusted address or domain only says what the envelope claims. It does not prove the human sender is who they claim to be.
-4. **Local filesystem** — settings and drafts live under `$DSH_HOME/mail-plugin`; the password lives in the DSH credential store. Anyone who can read the DSH home can read the drafts.
+4. **Local filesystem** — settings and drafts live under `$DSH_HOME/mail-plugin`; the password lives in the DSH credential store. Anyone who can read the DSH home can read the drafts and outgoing attachment copies.
+5. **Attachments** — outgoing files are copied from paths the model supplies, but the plugin does not scan them for malware or enforce a directory allowlist. Review is the control; every attachment-bearing draft is forced through review.
 5. **Other DSH tools** — the Mail plugin does not grant filesystem or shell access. Any such access comes from the rest of the session and is governed by DSH's sandbox and approval policy.
 
 ## Known risks and mitigations
@@ -43,6 +45,7 @@ Trust boundaries:
 - **Prompt injection** — the watcher prompt marks message content as data, but the model can still be manipulated. Do not combine automatic mail with broad filesystem or shell permissions unless you accept that risk.
 - **Credential storage** — use an app password, not the primary account password. TLS is mandatory for real use. Rotate the password if the profile or machine is compromised.
 - **Data retention** — removing the plugin does not remove its credential, settings, drafts, or watcher state. Clean them explicitly if needed.
+- **Attachments** — outgoing attachments always require review, even for trusted recipients. Verify filenames and sizes; the plugin copies files but does not scan them. A prompt-injected model could propose an unexpected file, so do not approve blindly. Incoming attachments may contain malware and are never executed by the plugin.
 - **Editor sanitization** — the visual editor strips scripts, iframes, event handlers, unsafe URLs, and remote image URLs before rendering draft markup. Raw HTML remains available under **Advanced: HTML source** for trusted, precise markup.
 
 ## Out of scope

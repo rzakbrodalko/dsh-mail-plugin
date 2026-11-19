@@ -13,6 +13,7 @@ A community plugin for DSH. It is not an official DeepSeek project.
 - **Conversational revisions** — ask the model to make a draft more specific, shorter, warmer, or add an example, then review the result.
 - **Trusted recipients** — whitelist exact addresses (`test@example.com`) or domains (`example.com`, including subdomains).
 - **Incoming attachments** — save decoded attachments to a bounded local folder with safe names, then inspect them with normal DSH tools.
+- **Outgoing attachments** — attach local files to a review draft; files are copied into plugin storage and sent as `multipart/mixed`.
 - **Background watcher** — polls for new mail and wakes the session that last used a Mail tool; trusted replies can be sent automatically.
 - **No runtime dependencies** — small IMAP/SMTP/MIME implementation on Node built-ins.
 
@@ -31,7 +32,7 @@ Works with any standard IMAP4rev1 + SMTP submission server that supports LOGIN o
 Install the package through **Plugins → Add plugin** and use the package spec:
 
 ```text
-dsh-mail-plugin@1.4.0
+dsh-mail-plugin@1.5.0
 ```
 
 The equivalent agent operation is `plugin_manager` with `action: "install_bundle"` and that spec as `target`. Installation is profile-wide and survives restart.
@@ -66,6 +67,7 @@ Install the checkout as a local bundle through **Plugins → Add plugin**, or wi
    - **Review all, except trusted recipients** — default.
    - **Always review** — every draft waits.
    - **Never review** — every draft is auto-approved. Use with care.
+   - **Attachments** — a draft with any outgoing attachment always waits for review, regardless of this setting.
 6. Optionally enable **Automatic replies** and choose a polling interval.
 
 The password is written to the DSH credential store as `mail-plugin/default`. Settings, drafts, and watcher state are stored under `$DSH_HOME/mail-plugin/` (normally `~/.dsh/mail-plugin/`).
@@ -88,8 +90,8 @@ The agent calls:
 |---|---|
 | `mail_list` | List recent messages with UID, sender, subject, date, unread state, and a preview |
 | `mail_read` | Read one message; optionally save attachments and mark it seen |
-| `mail_reply` | Create a multipart/alternative HTML reply draft with threading headers |
-| `mail_send` | Send an approved or auto-approved draft |
+| `mail_reply` | Create a multipart/alternative HTML reply draft; optionally attach local files |
+| `mail_send` | Send an approved or auto-approved draft, including its attachments |
 | `mail_drafts` | Inspect draft review/send state |
 | `mail_draft_get` | Read an existing draft for a user-requested revision |
 | `mail_draft_update` | Replace a draft’s HTML/subject without sending it |
@@ -177,6 +179,25 @@ Limits and safety:
 
 Downloaded attachments can contain malware. Do not execute them, and treat their contents as untrusted data.
 
+### Outgoing attachments
+
+Pass absolute local paths in the `attachments` array of `mail_reply`:
+
+```text
+mail_reply({ uid: 18, html: "<p>Attached is the proposal.</p>", attachments: ["C:\\designs\\proposal.pdf"] })
+```
+
+At draft creation the plugin:
+
+1. Opens each file and enforces 10 MiB per file and 25 MiB total, with at most 10 files.
+2. Copies it into the plugin data directory under `outgoing/<draft-id>/` with a sanitized name and owner-only permissions.
+3. Records the SHA-256 hash, size, and MIME type.
+
+Attachments always force **review**, even for a trusted recipient or `never` review mode. The review panel lists the filenames and sizes. When the draft is approved, the server re-reads the copied files, verifies their hashes, and sends a `multipart/mixed` message with base64-encoded attachments.
+
+The stored copies are retained for audit after sending; clean `$DSH_HOME/mail-plugin/outgoing/` periodically if disk use matters.
+
+
 ### Background watcher
 
 When enabled, the watcher polls the inbox (30–300 seconds, default 60) while DSH is running:
@@ -221,7 +242,8 @@ For the full threat model, reporting process, and hardening checklist, see [SECU
 - Email content is untrusted input. The watcher prompt tells the agent to treat it as data, but the model can still be influenced by persuasive content.
 - The model may make mistakes, misread a request, or produce an incorrect answer. Review mode is the main defence for high-value recipients.
 - The Mail plugin does not grant filesystem access. Any file or shell access the agent uses comes from the rest of the DSH session and remains subject to DSH's sandbox and approval policy.
-- The plugin cannot attach files to outgoing mail; replies are HTML text only. Incoming attachments can be saved and inspected, but they may contain malware and are never executed by the plugin.
+- Outgoing attachments are always reviewed. Verify every filename and size in the review panel; the plugin copies files but does not scan them for malware. Do not approve an attachment you did not expect.
+- Incoming attachments can be saved and inspected, but they may contain malware and are never executed by the plugin.
 
 ### Data at rest
 
@@ -230,6 +252,7 @@ For the full threat model, reporting process, and hardening checklist, see [SECU
 - `$DSH_HOME/mail-plugin/watcher.json` contains the last UID and watcher state.
 - `$DSH_HOME/mail-plugin/contacts.json` contains the contact profiles and notes you entered.
 - `$DSH_HOME/mail-plugin/attachments/` contains saved incoming files and their manifest; it grows until you clean it up.
+- `$DSH_HOME/mail-plugin/outgoing/` contains copies of outgoing attachment files, grouped by draft id; it also grows until cleaned up.
 - Files are written with owner-only permissions where the platform supports it. Protect the DSH home directory and backups accordingly.
 
 ### Network and privacy
@@ -250,7 +273,7 @@ The plugin talks only to the IMAP and SMTP servers you configure. It contains no
 
 - One mailbox per installation; no multi-account selector.
 - No OAuth sign-in; no Gmail API/Microsoft Graph. App passwords only.
-- Incoming attachments can be saved and inspected; outgoing attachments are not supported.
+- Incoming attachments can be saved and inspected; outgoing attachments are supported for review drafts, with a 10 MiB per-file and 25 MiB total limit.
 - No IMAP IDLE; the watcher polls.
 - No draft folder synchronization; drafts live in the plugin store, not on the server.
 - Plain-text extraction is heuristic; complex HTML may lose formatting.

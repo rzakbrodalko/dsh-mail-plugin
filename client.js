@@ -80,6 +80,9 @@ window.__ModuleLoader__.load({
       'More formal': '更正式',
       'Warmer': '更亲切',
       'Last request: {instruction}': '上次请求：{instruction}',
+      'Attachments': '附件',
+      'Attachments require review': '附件需要审核',
+      'This draft includes attachments and must be reviewed.': '此草稿包含附件，必须审核。',
       'The draft was revised at the user’s request': '草稿已按你的请求修改，请审核。',
       'Sending…': '发送中…',
       'Approve & send': '批准并发送',
@@ -180,6 +183,14 @@ window.__ModuleLoader__.load({
     function fill(template, values) {
       return String(template).replace(/\{(\w+)\}/g, (match, key) =>
         values[key] === undefined ? match : String(values[key]))
+    }
+
+    function formatBytes(value) {
+      const bytes = Number(value)
+      if (!Number.isFinite(bytes) || bytes < 0) return ''
+      if (bytes < 1024) return `${bytes} B`
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} kB`
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
     }
 
     function reviewReasonText(reason, t) {
@@ -949,6 +960,17 @@ window.__ModuleLoader__.load({
         draft.sourcePreview
           ? h('p', { className: 'dsh-mail-source' }, fill(t('Original: {text}'), { text: draft.sourcePreview }))
           : null,
+        draft.attachments?.length > 0
+          ? h('div', { className: 'dsh-mail-attachments' },
+            h('div', { className: 'dsh-mail-label' }, t('Attachments')),
+            h('ul', null, draft.attachments.map(attachment =>
+              h('li', { key: attachment.filename },
+                h('span', null, attachment.filename),
+                h('span', { className: 'dsh-mail-attachment-size' }, formatBytes(attachment.size)),
+              ))),
+            h('p', { className: 'dsh-mail-editor-help' }, t('This draft includes attachments and must be reviewed.')),
+          )
+          : null,
         draft.error ? h('div', { className: 'dsh-mail-alert is-error' }, draft.error) : null,
         h('label', { className: 'dsh-mail-field' },
           h('span', { className: 'dsh-mail-label' }, t('Subject')),
@@ -1626,6 +1648,10 @@ window.__ModuleLoader__.load({
 .dsh-mail-meta{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--dsw-alias-label-secondary)}
 .dsh-mail-reason{font-size:12px;color:var(--dsw-alias-state-warn-primary);margin:6px 0 0}
 .dsh-mail-source{margin:6px 0 0;font-size:12px;color:var(--dsw-alias-label-secondary);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.dsh-mail-attachments{margin-top:10px;padding:10px 12px;border:1px solid var(--dsw-alias-border-l1);border-radius:10px;background:var(--dsw-alias-bg-layer-1)}
+.dsh-mail-attachments ul{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-direction:column;gap:4px}
+.dsh-mail-attachments li{display:flex;justify-content:space-between;gap:12px;font-size:12px}
+.dsh-mail-attachment-size{color:var(--dsw-alias-label-secondary);white-space:nowrap}
 .dsh-mail-body.is-hidden,.dsh-mail-scroll.is-hidden{display:none}
 .dsh-mail-contacts{display:flex;gap:24px;align-items:flex-start}
 .dsh-mail-contact-list{width:clamp(260px,30vw,380px);flex:none}

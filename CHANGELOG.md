@@ -9,6 +9,7 @@ All notable changes to this project are documented here. The format follows [Kee
 - **Trust badges in Contacts** — each contact now shows whether it is covered by the trusted-recipient list.
 - **Trusted** — the profile is an exact address that is itself trusted.
 - **Trusted domain** — the profile is covered by a trusted domain entry; its badge is blue so it does not read as inactive.
+- Type badges are now outline-only: exact address uses the success green, domain uses the warning amber. Trust badges stay filled, so authorization is visually stronger than scope.
 - The contact profile header groups the trust badge next to the heading; the address/domain type badge remains on the contact list only, because the Match field already shows the type.
 - Trust status refreshes when the Contacts tab is opened, so changes in Settings are reflected without a restart.
 

@@ -1659,10 +1659,10 @@ window.__ModuleLoader__.load({
 .dsh-mail-pill.is-warn{color:var(--dsw-alias-state-warn-primary);background:color-mix(in srgb,var(--dsw-alias-state-warn-primary) 14%,transparent)}
 .dsh-mail-pill.is-ok{color:var(--dsw-alias-state-success-primary);background:color-mix(in srgb,var(--dsw-alias-state-success-primary) 14%,transparent)}
 .dsh-mail-pill.is-error{color:var(--dsw-alias-state-error-primary);background:color-mix(in srgb,var(--dsw-alias-state-error-primary) 14%,transparent)}
-.dsh-mail-pill.is-exact,.dsh-mail-pill.is-domain{display:inline-flex;align-items:center;gap:5px;padding:0 8px 0 7px;font-weight:600;letter-spacing:.02em;text-transform:capitalize;border:1px solid transparent}
+.dsh-mail-pill.is-exact,.dsh-mail-pill.is-domain{display:inline-flex;align-items:center;gap:5px;padding:0 8px 0 7px;font-weight:600;letter-spacing:.02em;text-transform:capitalize;border:1px solid transparent;background:transparent}
 .dsh-mail-pill.is-exact::before,.dsh-mail-pill.is-domain::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor;box-shadow:0 0 0 2px color-mix(in srgb,currentColor 18%,transparent);flex:none}
-.dsh-mail-pill.is-exact{color:var(--dsw-alias-state-success-primary);background:color-mix(in srgb,var(--dsw-alias-state-success-primary) 12%,transparent);border-color:color-mix(in srgb,var(--dsw-alias-state-success-primary) 32%,transparent)}
-.dsh-mail-pill.is-domain{color:var(--dsw-alias-brand-primary);background:color-mix(in srgb,var(--dsw-alias-brand-primary) 12%,transparent);border-color:color-mix(in srgb,var(--dsw-alias-brand-primary) 32%,transparent)}
+.dsh-mail-pill.is-exact{color:var(--dsw-alias-state-success-primary);border-color:color-mix(in srgb,var(--dsw-alias-state-success-primary) 34%,transparent)}
+.dsh-mail-pill.is-domain{color:var(--dsw-alias-state-warn-primary);border-color:color-mix(in srgb,var(--dsw-alias-state-warn-primary) 34%,transparent)}
 .dsh-mail-pill.is-trusted,.dsh-mail-pill.is-trusted-domain{display:inline-flex;align-items:center;gap:4px;padding:0 8px;font-weight:700;border:1px solid transparent}
 .dsh-mail-pill.is-trusted::before,.dsh-mail-pill.is-trusted-domain::before{content:"✓";font-size:10px;line-height:1}
 .dsh-mail-pill.is-trusted{color:var(--dsw-alias-state-success-primary);background:color-mix(in srgb,var(--dsw-alias-state-success-primary) 14%,transparent);border-color:color-mix(in srgb,var(--dsw-alias-state-success-primary) 36%,transparent)}

@@ -1269,7 +1269,7 @@ window.__ModuleLoader__.load({
         }
       }
 
-      const isAddress = draft !== null && draft.match.includes('@')
+      const draftTrust = draft?.trust ?? null
 
       return h('div', { className: 'dsh-mail-contacts' },
         h('aside', { className: 'dsh-mail-contact-list' },
@@ -1304,8 +1304,9 @@ window.__ModuleLoader__.load({
         h('section', { className: 'dsh-mail-contact-editor' },
           h('div', { className: 'dsh-mail-contact-head' },
             h('h2', null, t('Contact profile')),
-            draft !== null ? h('span', { className: isAddress ? 'dsh-mail-pill is-exact' : 'dsh-mail-pill is-domain' }, isAddress ? t('exact address') : t('domain')) : null,
-            draft !== null ? trustPill(draft.trust, t) : null,
+            draftTrust !== null
+              ? h('div', { className: 'dsh-mail-contact-head-badges' }, trustPill(draftTrust, t))
+              : null,
           ),
           error !== '' ? h('div', { className: 'dsh-mail-alert is-error' }, error) : null,
           notice !== '' ? h('div', { className: 'dsh-mail-alert is-ok' }, notice) : null,
@@ -1688,6 +1689,7 @@ window.__ModuleLoader__.load({
 .dsh-mail-contact-editor{flex:1;min-width:0}
 .dsh-mail-contact-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
 .dsh-mail-contact-head h2{margin:0;font-size:16px;font-weight:500}
+.dsh-mail-contact-head-badges{display:flex;align-items:center;gap:6px;margin-left:auto}
 .dsh-mail-contact-form{display:flex;flex-direction:column;gap:12px;max-width:760px}
 @media (max-width:900px){.dsh-mail-contacts{flex-direction:column}.dsh-mail-contact-list{width:100%}}
 .dsh-mail-review{margin-top:14px;min-width:0}

@@ -128,12 +128,19 @@ The index format is validated by `@deepseek-ai/dsh-plugin-market-index`. Each ve
 - Bump the version, update `CHANGELOG.md`, commit, tag, and publish.
 - Never commit mailbox passwords, `$DSH_HOME` data, or built tarballs.
 
+## Release notes rule
+
+Every **minor** or **major** release needs an English note at `docs/releases/vX.Y.Z.md`, and the same text should be used for the GitHub release body. Patch releases may skip a separate note, but user-facing hotfixes still get a short one.
+
+The note should cover the user-visible changes, security/behavior implications, upgrade notes, installation, compatibility, and verification. Keep it consistent with `CHANGELOG.md`.
+
 ## Release checklist
 
 - [ ] `package.json` name, repository, author, license are correct
 - [ ] `cordis.patch.yml` row name matches the package name
 - [ ] `engines.dsh` still matches the tested DSH version
 - [ ] tests pass
+- [ ] minor/major release note exists at `docs/releases/vX.Y.Z.md`
 - [ ] `npm pack --dry-run` contains no secrets or tests
 - [ ] README security section is current
 - [ ] GitHub release and npm version match

@@ -25,6 +25,12 @@ window.__ModuleLoader__.load({
       '(no recipient)': '（无收件人）',
       'Recently sent': '最近发送',
       'Recently rejected': '最近拒绝',
+      'Make a draft again': '再次创建草稿',
+      'Creating…': '创建中…',
+      'New draft created for review.': '已创建新草稿，等待审核。',
+      'Sent: {time}': '发送时间：{time}',
+      'Attachments from this message are shown for reference.': '此邮件的附件仅供查看。',
+      'Draft recreated from sent history': '从已发送邮件重新创建的草稿',
       'Select a draft to review it.': '选择一封草稿进行审核。',
       'Loading draft…': '正在加载草稿…',
       'Draft saved.': '草稿已保存。',
@@ -128,6 +134,10 @@ window.__ModuleLoader__.load({
       'Trusted recipients': '受信任收件人',
       'One entry per line. A domain trusts every address at that domain and its subdomains. An exact address such as test@example.com trusts only that mailbox. Anything not listed waits for your approval in Review. With “Never review”, every draft is approved automatically and can be sent by the model without confirmation.': '每行一个条目。域名会信任该域名及其子域下的所有地址；test@example.com 这样的完整地址只信任该邮箱。未列出的收件人需要在“审核”中等待你的批准。选择“从不审核”时，所有草稿都会自动批准，模型无需确认即可发送。',
       'Automatic replies': '自动回复',
+      'Draft history': '草稿历史',
+      'Keep sent drafts': '保留已发送草稿',
+      'Keep rejected drafts': '保留已拒绝草稿',
+      '0 means keep all. Pending, approved, and failed drafts are kept until resolved; only sent and rejected history is capped when settings are saved or drafts change.': '0 表示全部保留。待审核、已批准和发送失败的草稿会保留到处理完成；只有已发送和已拒绝的历史会在保存设置或草稿变化时按上限清理。',
       'Check the inbox in the background': '在后台检查收件箱',
       'Check interval': '检查间隔',
       'Every 30 seconds': '每 30 秒',
@@ -362,7 +372,7 @@ window.__ModuleLoader__.load({
         return () => clearTimeout(timer)
       }, [notice])
 
-      async function refresh() {
+      async function refresh(preferredId = undefined) {
         try {
           const [nextStatus, nextLists] = await Promise.all([
             call('status'),
@@ -370,13 +380,18 @@ window.__ModuleLoader__.load({
           ])
           setStatus(nextStatus)
           setLists(nextLists)
-          const ids = [
+          const activeIds = [
             ...nextLists.pending,
             ...(nextLists.approved ?? []),
             ...nextLists.failed,
           ].map(draft => draft.id)
-          const current = selectedRef.current
-          const nextId = current !== null && ids.includes(current) ? current : (ids[0] ?? null)
+          const reviewIds = [
+            ...activeIds,
+            ...(nextLists.recent ?? []),
+            ...(nextLists.rejected ?? []),
+          ].map(draft => draft.id)
+          const current = preferredId ?? selectedRef.current
+          const nextId = current !== null && reviewIds.includes(current) ? current : (activeIds[0] ?? null)
           setSelectedId(nextId)
           return nextId
         } catch (failure) {
@@ -420,19 +435,21 @@ window.__ModuleLoader__.load({
         }
       }, [selectedId, detailNonce])
 
-      async function run(operation, success) {
+      async function run(operation, success, pick) {
         setBusy(true)
         setError('')
         setNotice('')
         let accepted = false
+        let result
         try {
-          const value = await operation()
+          result = await operation()
           accepted = true
-          if (success) setNotice(success(value))
+          if (success) setNotice(success(result))
         } catch (failure) {
           setError(failure instanceof Error ? failure.message : String(failure))
         } finally {
-          const nextId = await refresh()
+          const preferred = pick && accepted ? pick(result) : undefined
+          const nextId = await refresh(preferred)
           if (nextId !== null) {
             try {
               setDetail(await call('draft/get', { id: nextId }))
@@ -528,18 +545,42 @@ window.__ModuleLoader__.load({
             lists.recent.length > 0
               ? h('div', { className: 'dsh-mail-recent' },
                 h('div', { className: 'dsh-mail-list-head' }, t('Recently sent')),
-                lists.recent.map(draft => h('div', { key: draft.id, className: 'dsh-mail-recent-row' },
-                  h('span', { className: 'dsh-mail-recent-subject' }, draft.subject || t('(no subject)')),
-                  h('span', { className: 'dsh-mail-recent-time' }, formatDate(draft.sentAt)),
+                lists.recent.map(draft => h('button', {
+                  key: draft.id,
+                  type: 'button',
+                  className: draft.id === selectedId ? 'dsh-mail-recent-row is-active' : 'dsh-mail-recent-row',
+                  onClick: () => {
+                    if (draft.id === selectedId) {
+                      if (detail === null) setDetailNonce(value => value + 1)
+                      return
+                    }
+                    setDetail(null)
+                    setSelectedId(draft.id)
+                  },
+                },
+                h('span', { className: 'dsh-mail-recent-subject' }, draft.subject || t('(no subject)')),
+                h('span', { className: 'dsh-mail-recent-time' }, formatDate(draft.sentAt)),
                 )),
               )
               : null,
             (lists.rejected ?? []).length > 0
               ? h('div', { className: 'dsh-mail-recent' },
                 h('div', { className: 'dsh-mail-list-head' }, t('Recently rejected')),
-                lists.rejected.map(draft => h('div', { key: draft.id, className: 'dsh-mail-recent-row' },
-                  h('span', { className: 'dsh-mail-recent-subject' }, draft.subject || t('(no subject)')),
-                  h('span', { className: 'dsh-mail-recent-time' }, formatDate(draft.updatedAt)),
+                lists.rejected.map(draft => h('button', {
+                  key: draft.id,
+                  type: 'button',
+                  className: draft.id === selectedId ? 'dsh-mail-recent-row is-active' : 'dsh-mail-recent-row',
+                  onClick: () => {
+                    if (draft.id === selectedId) {
+                      if (detail === null) setDetailNonce(value => value + 1)
+                      return
+                    }
+                    setDetail(null)
+                    setSelectedId(draft.id)
+                  },
+                },
+                h('span', { className: 'dsh-mail-recent-subject' }, draft.subject || t('(no subject)')),
+                h('span', { className: 'dsh-mail-recent-time' }, formatDate(draft.updatedAt)),
                 )),
               )
               : null,
@@ -586,6 +627,11 @@ window.__ModuleLoader__.load({
                       () => call('draft/reject', { id: detail.id }),
                       () => t('Draft rejected.'),
                     ),
+                    onReuse: () => run(
+                      () => call('draft/reuse', { id: detail.id }),
+                      () => t('New draft created for review.'),
+                      value => value.id,
+                    ),
                     onDone: () => setSelectedId(null),
                   }),
           ),
@@ -622,7 +668,7 @@ window.__ModuleLoader__.load({
       )
     }
 
-    function DraftView({ draft, busy, call, onSave, onApprove, onRetry, onReject, onDone, onRevised, t }) {
+    function DraftView({ draft, busy, call, onSave, onApprove, onRetry, onReject, onReuse, onDone, onRevised, t }) {
       const [html, setHtml] = useState(draft.html)
       const [subject, setSubject] = useState(draft.subject)
       const [confirm, setConfirm] = useState('')
@@ -979,6 +1025,9 @@ window.__ModuleLoader__.load({
         draft.sourcePreview
           ? h('p', { className: 'dsh-mail-source' }, fill(t('Original: {text}'), { text: draft.sourcePreview }))
           : null,
+        draft.sentAt
+          ? h('p', { className: 'dsh-mail-source' }, fill(t('Sent: {time}'), { time: formatDate(draft.sentAt) }))
+          : null,
         draft.attachments?.length > 0
           ? h('div', { className: 'dsh-mail-attachments' },
             h('div', { className: 'dsh-mail-label' }, t('Attachments')),
@@ -987,7 +1036,10 @@ window.__ModuleLoader__.load({
                 h('span', null, attachment.filename),
                 h('span', { className: 'dsh-mail-attachment-size' }, formatBytes(attachment.size)),
               ))),
-            h('p', { className: 'dsh-mail-editor-help' }, t('This draft includes attachments and must be reviewed.')),
+            h('p', { className: 'dsh-mail-editor-help' },
+              draft.status === 'sent'
+                ? t('Attachments from this message are shown for reference.')
+                : t('This draft includes attachments and must be reviewed.')),
           )
           : null,
         draft.error ? h('div', { className: 'dsh-mail-alert is-error' }, draft.error) : null,
@@ -1141,6 +1193,12 @@ window.__ModuleLoader__.load({
                 }
               },
             }, confirm === 'reject' ? t('Confirm reject') : t('Reject'))
+            : null,
+          draft.status === 'sent'
+            ? h('button', {
+              type: 'button', className: 'dsh-mail-button is-primary', disabled: busy,
+              onClick: () => { void onReuse() },
+            }, busy ? t('Creating…') : t('Make a draft again'))
             : null,
           h('button', {
             type: 'button',
@@ -1395,6 +1453,8 @@ window.__ModuleLoader__.load({
         sentFolder: account.sentFolder,
         mode: status.review.mode,
         domains: status.review.trustedDomains.join('\n'),
+        retentionSent: status.retention?.sent ?? 100,
+        retentionRejected: status.retention?.rejected ?? 50,
         password: '',
         watcherEnabled: status.watcher?.enabled === true,
         watcherInterval: status.watcher?.intervalSeconds ?? 60,
@@ -1423,6 +1483,10 @@ window.__ModuleLoader__.load({
           review: {
             mode: form.mode,
             trustedDomains: form.domains.split(/[\s,;]+/).map(value => value.trim()).filter(Boolean),
+          },
+          retention: {
+            sent: Number(form.retentionSent),
+            rejected: Number(form.retentionRejected),
           },
           watcher: {
             enabled: form.watcherEnabled,
@@ -1542,6 +1606,21 @@ window.__ModuleLoader__.load({
             h('span', { className: 'dsh-mail-help' },
               t('One entry per line. A domain trusts every address at that domain and its subdomains. An exact address such as test@example.com trusts only that mailbox. Anything not listed waits for your approval in Review. With “Never review”, every draft is approved automatically and can be sent by the model without confirmation.')),
           ),
+        ),
+        h('section', { className: 'dsh-mail-section' },
+          h('h2', null, t('Draft history')),
+          h('div', { className: 'dsh-mail-grid' },
+            h(Field, {
+              label: t('Keep sent drafts'), value: form.retentionSent,
+              onChange: value => set('retentionSent', value), type: 'number',
+            }),
+            h(Field, {
+              label: t('Keep rejected drafts'), value: form.retentionRejected,
+              onChange: value => set('retentionRejected', value), type: 'number',
+            }),
+          ),
+          h('p', { className: 'dsh-mail-help' },
+            t('0 means keep all. Pending, approved, and failed drafts are kept until resolved; only sent and rejected history is capped when settings are saved or drafts change.')),
         ),
         h('section', { className: 'dsh-mail-section' },
           h('h2', null, t('Automatic replies')),
@@ -1668,7 +1747,9 @@ window.__ModuleLoader__.load({
 .dsh-mail-pill.is-trusted{color:var(--dsw-alias-state-success-primary);background:color-mix(in srgb,var(--dsw-alias-state-success-primary) 14%,transparent);border-color:color-mix(in srgb,var(--dsw-alias-state-success-primary) 36%,transparent)}
 .dsh-mail-pill.is-trusted-domain{color:#3b82f6;background:color-mix(in srgb,#3b82f6 14%,transparent);border-color:color-mix(in srgb,#3b82f6 38%,transparent)}
 .dsh-mail-recent{margin-top:20px;border-top:1px solid var(--dsw-alias-border-l1);padding-top:10px}
-.dsh-mail-recent-row{display:flex;justify-content:space-between;gap:8px;padding:4px 8px;font-size:12px;color:var(--dsw-alias-label-secondary)}
+.dsh-mail-recent-row{display:flex;justify-content:space-between;gap:8px;padding:4px 8px;font-size:12px;color:var(--dsw-alias-label-secondary);width:100%;border:0;border-radius:6px;background:transparent;font-family:inherit;text-align:left;cursor:pointer}
+.dsh-mail-recent-row:hover{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary)}
+.dsh-mail-recent-row.is-active{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary)}
 .dsh-mail-recent-subject{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dsh-mail-recent-time{flex:none}
 .dsh-mail-detail{flex:1;min-width:0;overflow:auto;padding:18px clamp(18px,3vw,40px) 32px}

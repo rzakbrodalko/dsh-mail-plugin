@@ -122,6 +122,8 @@ const normalized = normalizeSettings({
 })
 assert.equal(normalized.review.trustedDomains.length, 2)
 assert.ok(normalized.review.trustedDomains.includes('test@example.com'))
+assert.equal(normalized.retention.sent, 100)
+assert.equal(normalized.retention.rejected, 50)
 assert.equal(normalized.account.username, 'a@b.com')
 
 const store = new MailStore(directory)
@@ -220,6 +222,31 @@ assert.equal(savedAttachments[0].filename, 'evil.txt')
 assert.equal(savedAttachments[0].skipped, false)
 assert.equal(fs.readFileSync(savedAttachments[0].path, 'utf8'), 'hello')
 assert.ok(savedAttachments[0].path.startsWith(directory))
+
+// 9. Per-status retention keeps active drafts and caps sent/rejected history.
+const retentionDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-mail-retention-'))
+const retentionSettings = normalizeSettings({
+  ...normalized,
+  retention: { sent: 1, rejected: 1 },
+})
+const retentionStore = new MailStore(retentionDirectory)
+await retentionStore.saveSettings(retentionSettings)
+const outgoing = path.join(retentionDirectory, 'outgoing', 's1')
+fs.mkdirSync(outgoing, { recursive: true })
+fs.writeFileSync(path.join(outgoing, 'old.txt'), 'old')
+const draftAt = (id, status, stamp) => ({
+  id, status, subject: id, to: [], cc: [], createdAt: stamp, updatedAt: stamp,
+})
+await retentionStore.mutate(() => [
+  draftAt('s1', 'sent', '2026-01-01T00:00:00.000Z'),
+  draftAt('s2', 'sent', '2026-02-01T00:00:00.000Z'),
+  draftAt('r1', 'rejected', '2026-01-01T00:00:00.000Z'),
+  draftAt('r2', 'rejected', '2026-02-01T00:00:00.000Z'),
+  draftAt('p1', 'pending_review', '2026-01-01T00:00:00.000Z'),
+])
+assert.deepEqual(retentionStore.listDrafts().map(draft => draft.id).sort(), ['p1', 'r2', 's2'])
+assert.equal(fs.existsSync(outgoing), false)
+fs.rmSync(retentionDirectory, { recursive: true, force: true })
 
 fs.rmSync(directory, { recursive: true, force: true })
 console.log('All mail plugin smoke tests passed')

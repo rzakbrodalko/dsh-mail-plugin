@@ -356,6 +356,17 @@ try {
   assert.match(smtp.captured[2], /Content-Disposition: attachment; filename="attachment.txt"/)
   assert.match(smtp.captured[2], /aGVsbG8gYXR0YWNobWVudAo=/)
 
+  // Reusing a sent draft creates a new pending review draft and copies its attachment.
+  const reused = await service.reuseSentDraft(attachmentReply.draftId)
+  assert.notEqual(reused.id, attachmentReply.draftId)
+  assert.equal(reused.status, 'pending_review')
+  assert.equal(reused.inReplyTo, null)
+  assert.equal(reused.attachments.length, 1)
+  assert.equal(reused.attachments[0].filename, 'attachment.txt')
+  assert.match(reused.html, /With attachment/)
+  assert.equal(reused.sentAt, undefined)
+  await service.rejectDraft(reused.id)
+
   fs.rmSync(directory, { recursive: true, force: true })
   console.log('IMAP/SMTP integration tests passed')
 } finally {

@@ -53,7 +53,7 @@ The model can check status with `mail_drafts`, `mail_contacts`, and `mail_status
 - The IMAP client implements the common IMAP4rev1 subset (LOGIN/SASL PLAIN, SELECT, UID SEARCH, UID FETCH, UID STORE, APPEND). Unusual server extensions or OAuth-only providers are not supported; use an app password where the provider requires one.
 - The Sent-folder copy is best effort. A missing Sent mailbox produces a warning but does not undo a successful send.
 - Drafts and settings live under `$DSH_HOME/mail-plugin`; the password lives in the credential store. Removing the plugin leaves both behind.
-- The visual editor sanitizes draft markup before display: scripts, iframes, event handlers, unsafe URLs, and remote image URLs are removed. Use the HTML source for image markup; remote images are not loaded in the editor.
+- The visual editor sanitizes draft markup before display: scripts, iframes, event handlers, unsafe URLs, and non-HTTPS image sources are removed. HTTPS draft images are loaded in the editor for preview with `referrerpolicy="no-referrer"`; the image host still sees the preview request.
 - The background watcher is near-real-time polling, not IMAP IDLE, and runs only while DSH is open with a live session to wake.
 - A watcher pass advances past every new UID once it has queued that session, so a model failure after queueing is not retried automatically; the unread message stays in the mailbox for a manual retry.
 - The panel's visible copy is English-only.

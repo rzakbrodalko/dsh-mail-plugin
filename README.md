@@ -32,7 +32,7 @@ Works with any standard IMAP4rev1 + SMTP submission server that supports LOGIN o
 Install the package through **Plugins → Add plugin** and use the package spec:
 
 ```text
-dsh-mail-plugin@1.5.0
+dsh-mail-plugin@1.5.1
 ```
 
 The equivalent agent operation is `plugin_manager` with `action: "install_bundle"` and that spec as `target`. Installation is profile-wide and survives restart.
@@ -257,7 +257,7 @@ For the full threat model, reporting process, and hardening checklist, see [SECU
 
 ### Network and privacy
 
-The plugin talks only to the IMAP and SMTP servers you configure. It contains no telemetry, analytics, or third-party HTTP calls. The visual editor sanitizes draft markup before displaying it: scripts, iframes, event handlers, unsafe URLs, and remote image URLs are removed. Use **Advanced: HTML source** for image markup; remote images are not loaded in the visual editor.
+The plugin talks only to the IMAP and SMTP servers you configure. It contains no telemetry or analytics, and its backend makes no third-party HTTP calls. The visual editor sanitizes draft markup before displaying it: scripts, iframes, event handlers, unsafe URLs, and non-HTTPS image sources are removed. HTTPS images are loaded from their draft URL for preview with `referrerpolicy="no-referrer"`, but the image host can still see your IP and the time of the preview. Use **Advanced: HTML source** for precise image markup; loaded images are not downloaded or stored by the plugin.
 
 ### Hardening checklist
 

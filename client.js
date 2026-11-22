@@ -65,7 +65,7 @@ window.__ModuleLoader__.load({
       'Link URL': '链接地址',
       'Advanced: HTML source': '高级：HTML 源码',
       'Write the reply…': '撰写回复…',
-      'Visual editing is simplified; use Advanced HTML for tables or images.': '可视化编辑会简化格式；表格或图片请使用高级 HTML。',
+      'Visual editing is simplified; use Advanced HTML for tables. Remote images load from their URL for preview.': '可视化编辑会简化格式；表格请使用高级 HTML。远程图片会通过其 URL 加载用于预览。',
       'Ask the model for changes': '让模型修改',
       'Describe the change you want…': '描述你想要的修改…',
       'Revise': '修改',
@@ -208,6 +208,7 @@ window.__ModuleLoader__.load({
     ])
     const PASTE_ATTRS = new Set([
       'href', 'src', 'alt', 'title', 'width', 'height', 'colspan', 'rowspan', 'style', 'align', 'valign',
+      'referrerpolicy', 'loading',
     ])
 
     /** Strip markup and attributes that should never enter the visual editor. */
@@ -240,10 +241,14 @@ window.__ModuleLoader__.load({
           }
           const value = attribute.value.trim()
           if (name === 'href' && !/^(https?:|mailto:|#)/i.test(value)) node.removeAttribute(attribute.name)
-          if (name === 'src' && !/^data:image\//i.test(value)) node.removeAttribute(attribute.name)
+          if (name === 'src' && !/^(?:data:image\/|https:\/\/)/i.test(value)) node.removeAttribute(attribute.name)
           if (name === 'style' && /(expression|behavior\s*:|url\s*\(\s*['"]?\s*javascript:)/i.test(value)) {
             node.removeAttribute(attribute.name)
           }
+        }
+        if (tag === 'img' && /^https:\/\//i.test(node.getAttribute('src') ?? '')) {
+          node.setAttribute('referrerpolicy', 'no-referrer')
+          node.setAttribute('loading', 'lazy')
         }
       }
       for (const child of [...doc.body.childNodes]) walk(child)
@@ -1038,7 +1043,7 @@ window.__ModuleLoader__.load({
             onPaste: pasteEditor,
           }),
           h('p', { className: 'dsh-mail-editor-help' },
-            t('Visual editing is simplified; use Advanced HTML for tables or images.')),
+            t('Visual editing is simplified; use Advanced HTML for tables. Remote images load from their URL for preview.')),
           h('details', { className: 'dsh-mail-advanced' },
             h('summary', null, t('Advanced: HTML source')),
             h('textarea', {

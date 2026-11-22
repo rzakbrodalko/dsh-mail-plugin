@@ -32,7 +32,7 @@ Works with any standard IMAP4rev1 + SMTP submission server that supports LOGIN o
 Install the package through **Plugins → Add plugin** and use the package spec:
 
 ```text
-dsh-mail-plugin@1.5.1
+dsh-mail-plugin@1.6.0
 ```
 
 The equivalent agent operation is `plugin_manager` with `action: "install_bundle"` and that spec as `target`. Installation is profile-wide and survives restart.
@@ -154,6 +154,15 @@ Matching rules:
 4. Matching is case-insensitive.
 
 The list uses a **green badge with a dot** for exact addresses and a **blue badge with a dot** for domains, so the scope is clear at a glance.
+
+Contacts also show their current trust status from **Settings → Review**:
+
+- **Trusted** — the contact profile is an exact address that is itself trusted.
+- **Trusted domain** — the profile is covered by a trusted domain rule.
+- No badge — the profile is not covered by the trusted list.
+
+An exact trusted address does **not** make a domain-wide contact trusted; the domain badge requires a domain rule. Trust badges are informational and never change the trusted list or the review policy.
+
 
 Contact profiles **never** change the trusted-recipient list or the review policy. They only give the model context. Profiles are stored in `$DSH_HOME/mail-plugin/contacts.json` and are visible to the model, so do not put passwords or sensitive secrets in notes.
 

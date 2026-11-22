@@ -137,7 +137,19 @@ assert.equal(service.reviewDecision([{ address: 'x@example.com' }]).required, fa
 assert.equal(service.reviewDecision([{ address: 'x@sub.example.com' }]).required, false)
 assert.equal(service.reviewDecision([{ address: 'test@example.com' }]).required, false)
 assert.equal(service.reviewDecision([{ address: 'x@other.org' }]).required, true)
+const contactView = match => service.contactView({
+  id: 'trust-test', match, name: '', relationship: '', language: '', tone: '', notes: '',
+  createdAt: '', updatedAt: '',
+})
+assert.equal(contactView('someone@example.com').trust, 'domain')
+assert.equal(contactView('test@example.com').trust, 'address')
+assert.equal(contactView('example.com').trust, 'domain')
+assert.equal(contactView('sub.example.com').trust, 'domain')
+assert.equal(contactView('other.org').trust, null)
 store.getSettings().review.trustedDomains = ['boss@other.org']
+assert.equal(contactView('boss@other.org').trust, 'address')
+assert.equal(contactView('other.org').trust, null)
+assert.equal(contactView('sub.other.org').trust, null)
 assert.equal(service.reviewDecision([{ address: 'BOSS@other.org' }]).required, false)
 assert.equal(service.reviewDecision([{ address: 'other@other.org' }]).required, true)
 store.getSettings().review.mode = 'always'

@@ -11,6 +11,8 @@ A community plugin for DSH. It is not an official DeepSeek project.
 - **Review gate** — replies to untrusted recipients wait for your approval.
 - **Visual review editor** — format replies directly; raw HTML remains available as an advanced option.
 - **Conversational revisions** — ask the model to make a draft more specific, shorter, warmer, or add an example, then review the result.
+- **Sent history and reuse** — click a recent sent message to inspect it, then create a fresh review draft with **Make a draft again**.
+- **Draft retention** — cap sent and rejected history in Settings; active drafts are never removed automatically.
 - **Trusted recipients** — whitelist exact addresses (`test@example.com`) or domains (`example.com`, including subdomains).
 - **Incoming attachments** — save decoded attachments to a bounded local folder with safe names, then inspect them with normal DSH tools.
 - **Outgoing attachments** — attach local files to a review draft; files are copied into plugin storage and sent as `multipart/mixed`.
@@ -32,7 +34,7 @@ Works with any standard IMAP4rev1 + SMTP submission server that supports LOGIN o
 Install the package through **Plugins → Add plugin** and use the package spec:
 
 ```text
-dsh-mail-plugin@1.6.0
+dsh-mail-plugin@1.7.0
 ```
 
 The equivalent agent operation is `plugin_manager` with `action: "install_bundle"` and that spec as `target`. Installation is profile-wide and survives restart.
@@ -108,6 +110,23 @@ The review panel opens on the **only** editing surface: a visual editor with bas
 - **Advanced: HTML source** is collapsed by default for precise markup, tables, or images.
 - Visual editing is intentionally simplified; use the HTML source when exact email markup matters.
 - Approved drafts can still be edited and sent; sent and rejected drafts are read-only.
+
+### Sent history and reuse
+
+The Review panel keeps a **Recently sent** list of up to 20 drafts. Click a row to open a read-only view of what was sent, including its sent time and attachments.
+
+- **Make a draft again** creates a new draft with the same subject, body, recipients, and copied attachments.
+- The new draft is always `pending_review`, clears the old threading headers, and never sends automatically.
+- Rejected drafts are also clickable for read-only inspection.
+
+### Draft history retention
+
+Settings → **Draft history** controls how many sent and rejected drafts are kept. `0` means keep all.
+
+- Pending, approved, and failed drafts are never removed automatically.
+- Only sent and rejected history is capped.
+- Removing a draft also removes its `outgoing/<draft-id>` attachment copy.
+- Retention is applied when settings are saved and whenever drafts change.
 
 ### Conversational revisions
 

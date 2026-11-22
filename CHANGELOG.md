@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.7.0] - 2026-11-22
+
+### Added
+
+- **Clickable Recently sent** history in the Review panel. A sent draft opens in a read-only detail view with its sent time and attachments.
+- **Make a draft again** on a sent draft: creates a fresh review draft with the same subject, body, recipients, and copied attachments. Threading and send metadata are cleared; the new draft always waits for review.
+- **Draft retention settings** in Settings: keep the newest N sent drafts and N rejected drafts. `0` means keep all.
+- Pending, approved, and failed drafts are never removed by retention.
+- Removed sent/rejected drafts also lose their stored outgoing attachment directory.
+
+### Changed
+
+- Recently sent now exposes up to 20 entries, and rejected rows are clickable for read-only inspection too.
+
 ## [1.6.0] - 2026-11-22
 
 ### Added

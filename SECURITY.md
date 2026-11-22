@@ -46,7 +46,7 @@ Trust boundaries:
 - **Credential storage** — use an app password, not the primary account password. TLS is mandatory for real use. Rotate the password if the profile or machine is compromised.
 - **Data retention** — removing the plugin does not remove its credential, settings, drafts, or watcher state. Clean them explicitly if needed.
 - **Attachments** — outgoing attachments always require review, even for trusted recipients. Verify filenames and sizes; the plugin copies files but does not scan them. A prompt-injected model could propose an unexpected file, so do not approve blindly. Incoming attachments may contain malware and are never executed by the plugin.
-- **Editor sanitization** — the visual editor strips scripts, iframes, event handlers, unsafe URLs, and remote image URLs before rendering draft markup. Raw HTML remains available under **Advanced: HTML source** for trusted, precise markup.
+- **Editor sanitization** — the visual editor strips scripts, iframes, event handlers, unsafe URLs, and non-HTTPS image sources before rendering draft markup. HTTPS images are loaded for preview with `referrerpolicy="no-referrer"`; the image host can still see your IP and the preview time. Raw HTML remains available under **Advanced: HTML source** for trusted, precise markup.
 
 ## Out of scope
 

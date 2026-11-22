@@ -33,7 +33,7 @@
 在 DSH 中打开 **插件 → 添加插件**，输入：
 
 ```text
-dsh-mail-plugin@1.5.0
+dsh-mail-plugin@1.5.1
 ```
 
 也可以让 Agent 使用 `plugin_manager`，`action: "install_bundle"`，`target` 填写上面的包名。安装对当前 profile 生效，重启后保留。
@@ -256,7 +256,7 @@ mail_reply({ uid: 18, html: "<p>提案见附件。</p>", attachments: ["C:\\desi
 
 ### 网络与隐私
 
-插件只连接你配置的 IMAP/SMTP 服务器，不包含遥测、分析或第三方 HTTP 调用。可视化编辑器在显示前会清理草稿标记：脚本、iframe、事件处理器、不安全链接和远程图片地址会被移除。图片标记请使用 **高级：HTML 源码**；可视化编辑器不会加载远程图片。
+插件只连接你配置的 IMAP/SMTP 服务器，不包含遥测或分析，后端不发起第三方 HTTP 请求。可视化编辑器在显示前会清理草稿标记：脚本、iframe、事件处理器、不安全链接和非 HTTPS 图片地址会被移除。HTTPS 图片会从草稿 URL 加载用于预览，并设置 `referrerpolicy="no-referrer"`；但图片服务器仍能看到你的 IP 和预览时间。需要精确控制图片标记时可使用 **高级：HTML 源码**；插件不会下载或保存加载的图片。
 
 ### 加固清单
 

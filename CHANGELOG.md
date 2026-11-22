@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.5.1] - 2026-11-22
+
+### Fixed
+
+- The visual editor now keeps **HTTPS image URLs** in drafts instead of stripping `src` and showing a broken-image placeholder. Remote images load for preview with `referrerpolicy="no-referrer"` and `loading="lazy"`; non-HTTPS and unsafe image sources are still removed.
+
 ## [1.5.0] - 2026-11-19
 
 ### Added

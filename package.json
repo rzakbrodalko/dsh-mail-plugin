@@ -3,7 +3,7 @@
   "version": "1.6.0",
   "description": "Read IMAP mail, watch for new messages, and send reviewed multipart HTML replies with optional attachments from DeepSeek Harness.",
   "license": "MIT",
-  "author": "Robert Zak-Brodalko",
+  "author": "Radosław Żak-Brodalko",
   "homepage": "https://github.com/rzakbrodalko/dsh-mail-plugin#readme",
   "repository": {
     "type": "git",

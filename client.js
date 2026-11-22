@@ -174,6 +174,11 @@ window.__ModuleLoader__.load({
       'Contact deleted.': '联系人已删除。',
       'exact address': '精确地址',
       'domain': '域名',
+      'Trusted': '受信任',
+      'Trusted domain': '受信任域名',
+      'Matches a trusted address.': '匹配受信任地址。',
+      'Covered by a trusted domain.': '由受信任域名覆盖。',
+      'Trust badges come from the trusted recipients in Settings; they do not change the policy.': '信任徽标来自设置中的受信任收件人，不会改变审核策略。',
       'Select a contact or create a new one.': '选择一个联系人或新建一个。',
       'An exact address wins over a domain. Domain entries also cover subdomains. Profiles only guide language and tone; they never change the trusted-recipient or review policy.': '精确地址优先于域名。域名条目也覆盖子域名。联系人档案只影响语言和语气，不会改变受信任收件人或审核策略。',
       'Stored locally under $DSH_HOME/mail-plugin. Do not put passwords or sensitive secrets in notes; they are visible to the model.': '保存在 $DSH_HOME/mail-plugin 本地。请勿在备注中填写密码或敏感机密，模型可以看到这些内容。',
@@ -191,6 +196,15 @@ window.__ModuleLoader__.load({
       if (bytes < 1024) return `${bytes} B`
       if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} kB`
       return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+    }
+
+    function trustPill(trust, t) {
+      if (trust !== 'address' && trust !== 'domain') return null
+      const isDomain = trust === 'domain'
+      return h('span', {
+        className: isDomain ? 'dsh-mail-pill is-trusted-domain' : 'dsh-mail-pill is-trusted',
+        title: t(isDomain ? 'Covered by a trusted domain.' : 'Matches a trusted address.'),
+      }, t(isDomain ? 'Trusted domain' : 'Trusted'))
     }
 
     function reviewReasonText(reason, t) {
@@ -577,7 +591,7 @@ window.__ModuleLoader__.load({
           ),
         ),
         h('div', { className: tab === 'contacts' ? 'dsh-mail-scroll' : 'dsh-mail-scroll is-hidden' },
-          h(ContactsPanel, { call, t }),
+          h(ContactsPanel, { call, t, active: tab === 'contacts' }),
         ),
         h('div', { className: tab === 'settings' ? 'dsh-mail-scroll' : 'dsh-mail-scroll is-hidden' },
           status === null
@@ -1146,7 +1160,7 @@ window.__ModuleLoader__.load({
       )
     }
 
-    function ContactsPanel({ call, t }) {
+    function ContactsPanel({ call, t, active }) {
       const [contacts, setContacts] = useState([])
       const [selectedId, setSelectedId] = useState(null)
       const [draft, setDraft] = useState(null)
@@ -1181,8 +1195,8 @@ window.__ModuleLoader__.load({
       }
 
       useEffect(() => {
-        void load()
-      }, [])
+        if (active) void load()
+      }, [active])
 
       useEffect(() => {
         if (notice === '') return undefined
@@ -1212,7 +1226,7 @@ window.__ModuleLoader__.load({
       }
 
       function field(key, value) {
-        setDraft(current => ({ ...current, [key]: value }))
+        setDraft(current => ({ ...current, [key]: value, ...(key === 'match' ? { trust: null } : {}) }))
         setConfirmDelete(false)
       }
 
@@ -1255,7 +1269,7 @@ window.__ModuleLoader__.load({
         }
       }
 
-      const isAddress = draft !== null && draft.match.includes('@')
+      const draftTrust = draft?.trust ?? null
 
       return h('div', { className: 'dsh-mail-contacts' },
         h('aside', { className: 'dsh-mail-contact-list' },
@@ -1281,6 +1295,7 @@ window.__ModuleLoader__.load({
             h('span', { className: 'dsh-mail-item-top' },
               h('span', { className: 'dsh-mail-item-subject' }, entry.name || entry.match),
               h('span', { className: entry.match.includes('@') ? 'dsh-mail-pill is-exact' : 'dsh-mail-pill is-domain' }, entry.match.includes('@') ? t('exact address') : t('domain')),
+              trustPill(entry.trust, t),
             ),
             h('span', { className: 'dsh-mail-item-to' }, entry.match),
             entry.relationship !== '' ? h('span', { className: 'dsh-mail-item-time' }, entry.relationship) : null,
@@ -1289,7 +1304,9 @@ window.__ModuleLoader__.load({
         h('section', { className: 'dsh-mail-contact-editor' },
           h('div', { className: 'dsh-mail-contact-head' },
             h('h2', null, t('Contact profile')),
-            draft !== null ? h('span', { className: isAddress ? 'dsh-mail-pill is-exact' : 'dsh-mail-pill is-domain' }, isAddress ? t('exact address') : t('domain')) : null,
+            draftTrust !== null
+              ? h('div', { className: 'dsh-mail-contact-head-badges' }, trustPill(draftTrust, t))
+              : null,
           ),
           error !== '' ? h('div', { className: 'dsh-mail-alert is-error' }, error) : null,
           notice !== '' ? h('div', { className: 'dsh-mail-alert is-ok' }, notice) : null,
@@ -1340,6 +1357,9 @@ window.__ModuleLoader__.load({
               ),
               h('p', { className: 'dsh-mail-help' },
                 t('An exact address wins over a domain. Domain entries also cover subdomains. Profiles only guide language and tone; they never change the trusted-recipient or review policy.'),
+              ),
+              h('p', { className: 'dsh-mail-help' },
+                t('Trust badges come from the trusted recipients in Settings; they do not change the policy.'),
               ),
               h('p', { className: 'dsh-mail-help' },
                 t('Stored locally under $DSH_HOME/mail-plugin. Do not put passwords or sensitive secrets in notes; they are visible to the model.'),
@@ -1639,10 +1659,14 @@ window.__ModuleLoader__.load({
 .dsh-mail-pill.is-warn{color:var(--dsw-alias-state-warn-primary);background:color-mix(in srgb,var(--dsw-alias-state-warn-primary) 14%,transparent)}
 .dsh-mail-pill.is-ok{color:var(--dsw-alias-state-success-primary);background:color-mix(in srgb,var(--dsw-alias-state-success-primary) 14%,transparent)}
 .dsh-mail-pill.is-error{color:var(--dsw-alias-state-error-primary);background:color-mix(in srgb,var(--dsw-alias-state-error-primary) 14%,transparent)}
-.dsh-mail-pill.is-exact,.dsh-mail-pill.is-domain{display:inline-flex;align-items:center;gap:5px;padding:0 8px 0 7px;font-weight:600;letter-spacing:.02em;text-transform:capitalize;border:1px solid transparent}
+.dsh-mail-pill.is-exact,.dsh-mail-pill.is-domain{display:inline-flex;align-items:center;gap:5px;padding:0 8px 0 7px;font-weight:600;letter-spacing:.02em;text-transform:capitalize;border:1px solid transparent;background:transparent}
 .dsh-mail-pill.is-exact::before,.dsh-mail-pill.is-domain::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor;box-shadow:0 0 0 2px color-mix(in srgb,currentColor 18%,transparent);flex:none}
-.dsh-mail-pill.is-exact{color:var(--dsw-alias-state-success-primary);background:color-mix(in srgb,var(--dsw-alias-state-success-primary) 12%,transparent);border-color:color-mix(in srgb,var(--dsw-alias-state-success-primary) 32%,transparent)}
-.dsh-mail-pill.is-domain{color:var(--dsw-alias-brand-primary);background:color-mix(in srgb,var(--dsw-alias-brand-primary) 12%,transparent);border-color:color-mix(in srgb,var(--dsw-alias-brand-primary) 32%,transparent)}
+.dsh-mail-pill.is-exact{color:var(--dsw-alias-state-success-primary);border-color:color-mix(in srgb,var(--dsw-alias-state-success-primary) 34%,transparent)}
+.dsh-mail-pill.is-domain{color:var(--dsw-alias-state-warn-primary);border-color:color-mix(in srgb,var(--dsw-alias-state-warn-primary) 34%,transparent)}
+.dsh-mail-pill.is-trusted,.dsh-mail-pill.is-trusted-domain{display:inline-flex;align-items:center;gap:4px;padding:0 8px;font-weight:700;border:1px solid transparent}
+.dsh-mail-pill.is-trusted::before,.dsh-mail-pill.is-trusted-domain::before{content:"✓";font-size:10px;line-height:1}
+.dsh-mail-pill.is-trusted{color:var(--dsw-alias-state-success-primary);background:color-mix(in srgb,var(--dsw-alias-state-success-primary) 14%,transparent);border-color:color-mix(in srgb,var(--dsw-alias-state-success-primary) 36%,transparent)}
+.dsh-mail-pill.is-trusted-domain{color:#3b82f6;background:color-mix(in srgb,#3b82f6 14%,transparent);border-color:color-mix(in srgb,#3b82f6 38%,transparent)}
 .dsh-mail-recent{margin-top:20px;border-top:1px solid var(--dsw-alias-border-l1);padding-top:10px}
 .dsh-mail-recent-row{display:flex;justify-content:space-between;gap:8px;padding:4px 8px;font-size:12px;color:var(--dsw-alias-label-secondary)}
 .dsh-mail-recent-subject{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -1665,6 +1689,7 @@ window.__ModuleLoader__.load({
 .dsh-mail-contact-editor{flex:1;min-width:0}
 .dsh-mail-contact-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
 .dsh-mail-contact-head h2{margin:0;font-size:16px;font-weight:500}
+.dsh-mail-contact-head-badges{display:flex;align-items:center;gap:6px;margin-left:auto}
 .dsh-mail-contact-form{display:flex;flex-direction:column;gap:12px;max-width:760px}
 @media (max-width:900px){.dsh-mail-contacts{flex-direction:column}.dsh-mail-contact-list{width:100%}}
 .dsh-mail-review{margin-top:14px;min-width:0}

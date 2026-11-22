@@ -2,6 +2,22 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.6.0] - 2026-11-22
+
+### Added
+
+- **Trust badges in Contacts** — each contact now shows whether it is covered by the trusted-recipient list.
+- **Trusted** — the profile is an exact address that is itself trusted.
+- **Trusted domain** — the profile is covered by a trusted domain entry; its badge is blue so it does not read as inactive.
+- Type badges are now outline-only: exact address uses the success green, domain uses the warning amber. Trust badges stay filled, so authorization is visually stronger than scope.
+- The contact profile header groups the trust badge next to the heading; the address/domain type badge remains on the contact list only, because the Match field already shows the type.
+- Trust status refreshes when the Contacts tab is opened, so changes in Settings are reflected without a restart.
+
+### Notes
+
+- An exact trusted address does not mark a domain-wide contact as trusted; a domain contact needs a trusted domain rule.
+- Badges are informational and never change the trusted list or review policy.
+
 ## [1.5.1] - 2026-11-22
 
 ### Fixed
